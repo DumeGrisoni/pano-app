@@ -1,17 +1,11 @@
-import { createClient } from '@/lib/supabase/server';
 import { Suspense } from 'react';
+import { getProducts } from '@/lib/data/products';
 
-async function ProductsData() {
-  const supabase = await createClient();
-  const { data: products } = await supabase.from('Products').select();
-
-  return <pre>{JSON.stringify(products, null, 2)}</pre>;
-}
-
-export default function Products() {
+export default async function Products() {
+  const product = await getProducts();
   return (
     <Suspense fallback={<div>Loading products...</div>}>
-      <ProductsData />
+      <div>{product.title}</div>
     </Suspense>
   );
 }
