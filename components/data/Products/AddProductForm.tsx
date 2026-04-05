@@ -21,9 +21,18 @@ import {
   FieldGroup,
   FieldLabel,
 } from '@/components/ui/field';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 
 import { createProduct } from '@/lib/data/products';
+import { Database } from '@/database.types';
+import { getAllSuppliers } from '@/lib/data/suppliers';
 
 const formSchema = z.object({
   title: z
@@ -34,24 +43,15 @@ const formSchema = z.object({
     .string()
     .min(1, 'La réference doit avoir au moins 4 caractères.')
     .max(100, 'La réference doit avoir au plus 100 caractères.'),
-  supplier: z
-    .string()
-    .min(1, 'Le fournisseur doit avoir au moins 4 caractères.')
-    .max(100, 'Le fournisseur doit avoir au plus 100 caractères.'),
+  supplier: z.string().min(1, 'Le fournisseur est requis'), // 👈 ici c’est un ID (string)
   price: z.preprocess(
     (val) => {
       if (typeof val === 'string') {
-        // Remplace virgule par point + trim
         const normalized = val.replace(',', '.').trim();
-
         const parsed = Number(normalized);
-
-        // Si NaN → invalide
         if (isNaN(parsed)) return undefined;
-
         return parsed;
       }
-
       return val;
     },
     z
@@ -63,6 +63,27 @@ const formSchema = z.object({
 });
 
 export function AddProductForm() {
+  const [suppliers, setSuppliers] = React.useState<
+    Database['public']['Tables']['Suppliers']['Row'][]
+  >([]);
+
+  React.useEffect(() => {
+    async function fetchSuppliers() {
+      const suppliers = await getAllSuppliers();
+      setSuppliers(suppliers);
+    }
+    fetchSuppliers();
+  }, []);
+
+  // 🔥 Map optimisée pour récupérer le nom rapidement
+  const supplierMap = React.useMemo(() => {
+    const map = new Map<number, string>();
+    suppliers.forEach((s) => {
+      map.set(s.id, s.name as string);
+    });
+    return map;
+  }, [suppliers]);
+
   const form = useForm<z.output<typeof formSchema>>({
     resolver: zodResolver(formSchema) as any,
     defaultValues: {
@@ -74,16 +95,22 @@ export function AddProductForm() {
   });
 
   async function onSubmit(data: z.output<typeof formSchema>) {
-    await new Promise((res) => setTimeout(res, 300)); // fake API
+    await new Promise((res) => setTimeout(res, 300));
 
     try {
+      const supplierId = Number(data.supplier);
+      const supplierName = supplierMap.get(supplierId) || '';
+
       await createProduct({
         title: data.title,
         price: data.price,
-        supplier: data.supplier,
+        supplier: supplierId, // 👈 ID propre
+        supplierName, // 👈 nom propre
         ref: data.ref,
       });
+
       form.reset();
+
       toast(
         <p className="text-xl font-semibold text-code-foreground ml-20 text-center">
           Produit ajouté
@@ -99,7 +126,7 @@ export function AddProductForm() {
               </p>
               <p className="font-semibold">
                 Fournisseur :{' '}
-                <span className="font-normal">{data.supplier}</span>
+                <span className="font-normal">{supplierName}</span>
               </p>
               <p className="font-semibold">
                 Prix : <span className="font-normal">{data.price} €</span>
@@ -150,6 +177,7 @@ export function AddProductForm() {
                 </Field>
               )}
             />
+
             <Controller
               name="ref"
               control={form.control}
@@ -169,19 +197,38 @@ export function AddProductForm() {
                 </Field>
               )}
             />
+
             <Controller
               name="supplier"
               control={form.control}
               render={({ field, fieldState }) => (
                 <Field data-invalid={fieldState.invalid}>
                   <FieldLabel>Fournisseur</FieldLabel>
-                  <Input {...field} placeholder="Ex: 3M" autoComplete="off" />
+
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choisir un fournisseur" />
+                    </SelectTrigger>
+
+                    <SelectContent>
+                      {suppliers.map((supplier) => (
+                        <SelectItem
+                          key={supplier.id}
+                          value={String(supplier.id)}
+                        >
+                          {supplier.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
                   {fieldState.invalid && (
                     <FieldError errors={[fieldState.error]} />
                   )}
                 </Field>
               )}
             />
+
             <Controller
               name="price"
               control={form.control}
@@ -198,6 +245,7 @@ export function AddProductForm() {
           </FieldGroup>
         </form>
       </CardContent>
+
       <CardFooter>
         <Field
           orientation="horizontal"
@@ -211,6 +259,7 @@ export function AddProductForm() {
           >
             Effacer
           </Button>
+
           <Button
             type="submit"
             form="form-rhf-demo"

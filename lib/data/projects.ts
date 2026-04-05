@@ -6,7 +6,23 @@ import { cache } from 'react';
 export async function getAllProjects() {
   const supabase = await createClient();
 
-  const { data, error } = await supabase.from('Projects').select();
+  const { data, error } = await supabase
+    .from('Projects')
+    .select()
+    .neq('status', 'DONE'); // 👈 filtre ici
+
+  if (error) throw error;
+
+  return (data as Database['public']['Tables']['Projects']['Row'][]) ?? [];
+}
+
+export async function getDoneProjects() {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('Projects')
+    .select()
+    .eq('status', 'DONE'); // 👈 uniquement les terminés
 
   if (error) throw error;
 

@@ -1,12 +1,12 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
 import { Database } from '@/database.types';
 import { ColumnDef } from '@tanstack/react-table';
 import { AlertTriangle, EyeIcon } from 'lucide-react';
 import Link from 'next/link';
-import { StatusBadge } from './BadgeStatus';
+
 import { ProjectStatus } from '@/lib/project-status';
+import { StatusBadge } from '../../BadgeStatus';
 
 // This type is used to define the shape of our data.
 // You can use a Zod schema here if you want.
@@ -14,21 +14,6 @@ import { ProjectStatus } from '@/lib/project-status';
 export const projectColumns: ColumnDef<
   Database['public']['Tables']['Projects']['Row']
 >[] = [
-  {
-    accessorKey: 'isUrgent',
-    header: 'Urgent',
-    cell: ({ row }) => {
-      const urgent = row.getValue('isUrgent') as boolean;
-
-      if (!urgent) return null;
-
-      return (
-        <div className="flex justify-center">
-          <AlertTriangle className="w-4 h-4 text-red-500" />
-        </div>
-      );
-    },
-  },
   {
     accessorKey: 'id',
     header: 'ID',

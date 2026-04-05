@@ -15,8 +15,9 @@ export async function getProducts() {
 export async function createProduct(data: {
   title: string;
   price: number;
-  supplier: string;
+  supplier: number;
   ref: string;
+  supplierName: string;
 }) {
   const supabase = await createClient();
   const { error } = await supabase.from('Products').insert(data);

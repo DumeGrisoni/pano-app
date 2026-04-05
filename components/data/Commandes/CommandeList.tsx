@@ -89,7 +89,7 @@ const CommandeList = () => {
 
         return (
           <Card key={commande.id} className="w-full">
-            <CardHeader className="py-4 relative bg-red-300 rounded-t-md border-b ">
+            <CardHeader className="py-4 relative  rounded-t-md border-b ">
               <CardTitle className="flex justify-between items-center">
                 <span className="text-xl flex-1 text-center">
                   {commande.supplier?.name}

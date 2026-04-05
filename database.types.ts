@@ -211,9 +211,9 @@ export type Database = {
           id: number
           isUrgent: boolean | null
           limitDate: string | null
+          metadata: Json | null
           note: string | null
           status: string | null
-          tasks: Json[] | null
           title: string | null
         }
         Insert: {
@@ -224,9 +224,9 @@ export type Database = {
           id?: number
           isUrgent?: boolean | null
           limitDate?: string | null
+          metadata?: Json | null
           note?: string | null
           status?: string | null
-          tasks?: Json[] | null
           title?: string | null
         }
         Update: {
@@ -237,9 +237,9 @@ export type Database = {
           id?: number
           isUrgent?: boolean | null
           limitDate?: string | null
+          metadata?: Json | null
           note?: string | null
           status?: string | null
-          tasks?: Json[] | null
           title?: string | null
         }
         Relationships: [
