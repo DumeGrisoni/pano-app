@@ -103,7 +103,6 @@ export function AddProjectForm({
         status: status,
         clientId: client.id,
         note: data.note,
-        tasks: [],
       });
       form.reset();
       toast(
@@ -202,7 +201,9 @@ export function AddProjectForm({
               control={form.control}
               render={({ field, fieldState }) => (
                 <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="form-rhf-demo-note">Titre</FieldLabel>
+                  <FieldLabel htmlFor="form-rhf-demo-note">
+                    Note générale
+                  </FieldLabel>
                   <Textarea
                     {...field}
                     id="form-rhf-demo-note"

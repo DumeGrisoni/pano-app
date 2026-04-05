@@ -25,6 +25,25 @@ import { getProducts } from '@/lib/data/products';
 import { SearchBar } from '@/components/SearchBar';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { Trash } from 'lucide-react';
+
+type pricing_type = 'unit' | 'm2' | 'ml' | 'm3' | 'lot';
+
+type Item = {
+  productId: number;
+  productName: string;
+  quantity: number;
+
+  width?: number;
+  height?: number;
+  length?: number;
+  depth?: number;
+
+  unitPrice: number;
+
+  pricing_type: pricing_type;
+  unit_multiplier?: number;
+};
 
 export default function ProjectContent() {
   const [project, setProject] = useState<
@@ -33,7 +52,7 @@ export default function ProjectContent() {
   const [products, setProducts] = useState<any[]>([]);
   const [openModal, setOpenModal] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const [items, setItems] = useState<any[]>([]);
+  const [items, setItems] = useState<Item[]>([]);
 
   const params = usePathname();
 
@@ -62,17 +81,42 @@ export default function ProjectContent() {
     setItems(newItems);
   };
 
-  function getItemTotal(item: any) {
-    const width = Number(item.width);
-    const height = Number(item.height);
-    const price = Number(item.unitPrice);
+  function getItemTotal(item: Item) {
     const qty = Number(item.quantity);
+    const price = Number(item.unitPrice);
 
-    if (!width || !height || !price || !qty) return 0;
+    if (!qty || !price) return 0;
 
-    const surface = (width / 1000) * (height / 1000);
+    switch (item.pricing_type) {
+      case 'unit':
+        return price * qty;
 
-    return surface * price * qty;
+      case 'ml': {
+        const length = (Number(item.length ?? item.width) || 0) / 1000;
+        return length * price * qty;
+      }
+
+      case 'm2': {
+        const width = (Number(item.width) || 0) / 1000;
+        const height = (Number(item.height) || 0) / 1000;
+        return width * height * price * qty;
+      }
+
+      case 'm3': {
+        const width = (Number(item.width) || 0) / 1000;
+        const height = (Number(item.height) || 0) / 1000;
+        const depth = (Number(item.depth) || 0) / 1000;
+        return width * height * depth * price * qty;
+      }
+
+      case 'lot': {
+        const divider = item.unit_multiplier || 1;
+        return (qty / divider) * price;
+      }
+
+      default:
+        return 0;
+    }
   }
 
   useEffect(() => {
@@ -171,18 +215,20 @@ export default function ProjectContent() {
             <Separator />
 
             {/* HEADER */}
-            <div className="grid grid-cols-5 gap-2 text-xs font-semibold text-muted-foreground">
+            <div className="grid grid-cols-6 gap-2 text-xs font-semibold text-muted-foreground">
               <div>Produit</div>
               <div>Qté</div>
               <div>Largeur (mm)</div>
               <div>Hauteur (mm)</div>
               <div>Total</div>
+              <div>Supprimer</div>
             </div>
 
             {/* LIGNES */}
             {items.map((item, index) => (
-              <div key={index} className="grid grid-cols-5 gap-2 items-center">
+              <div key={index} className="grid grid-cols-6 gap-4 items-center">
                 <Button
+                  className="truncate max-w-[150px]"
                   type="button"
                   variant="outline"
                   onClick={() => {
@@ -190,7 +236,9 @@ export default function ProjectContent() {
                     setOpenModal(true);
                   }}
                 >
-                  {item.productName || 'Choisir produit'}
+                  <span className="truncate w-full text-left">
+                    {item.productName || 'Choisir produit'}
+                  </span>
                 </Button>
 
                 <input
@@ -205,17 +253,28 @@ export default function ProjectContent() {
 
                 <input
                   type="number"
+                  placeholder={
+                    item.pricing_type === 'ml' ? 'Longueur (mm)' : 'Largeur'
+                  }
                   value={item.width}
                   onChange={(e) => {
                     const copy = [...items];
                     copy[index].width = Number(e.target.value);
+
+                    // 🔥 ML → on copie dans length
+                    if (item.pricing_type === 'ml') {
+                      copy[index].length = Number(e.target.value);
+                    }
+
                     updateItems(copy);
                   }}
                 />
 
                 <input
                   type="number"
-                  value={item.height}
+                  placeholder={item.pricing_type === 'ml' ? '—' : 'Hauteur'}
+                  value={item.pricing_type === 'ml' ? '' : item.height}
+                  disabled={item.pricing_type === 'ml'}
                   onChange={(e) => {
                     const copy = [...items];
                     copy[index].height = Number(e.target.value);
@@ -226,6 +285,16 @@ export default function ProjectContent() {
                 <div className="font-semibold">
                   {getItemTotal(item).toFixed(2)} €
                 </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    const copy = items.filter((_, i) => i !== index);
+                    updateItems(copy);
+                  }}
+                >
+                  <Trash />
+                </Button>
               </div>
             ))}
 
@@ -242,6 +311,9 @@ export default function ProjectContent() {
                       width: 0,
                       height: 0,
                       unitPrice: 0,
+
+                      pricing_type: 'unit',
+                      unit_multiplier: 1,
                     },
                   ])
                 }
@@ -305,6 +377,9 @@ export default function ProjectContent() {
                             productId: product.id,
                             productName: product.title,
                             unitPrice: Number(product.price),
+
+                            pricing_type: product.pricing_type || 'unit',
+                            unit_multiplier: product.unit_multiplier ?? 1,
                           };
 
                           updateItems(copy);

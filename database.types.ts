@@ -169,28 +169,34 @@ export type Database = {
           created_at: string
           id: number
           price: number
+          pricing_type: string | null
           ref: string
           supplier: number | null
           supplierName: string | null
           title: string | null
+          unit_multiplier: number | null
         }
         Insert: {
           created_at?: string
           id?: number
           price: number
+          pricing_type?: string | null
           ref: string
           supplier?: number | null
           supplierName?: string | null
           title?: string | null
+          unit_multiplier?: number | null
         }
         Update: {
           created_at?: string
           id?: number
           price?: number
+          pricing_type?: string | null
           ref?: string
           supplier?: number | null
           supplierName?: string | null
           title?: string | null
+          unit_multiplier?: number | null
         }
         Relationships: [
           {

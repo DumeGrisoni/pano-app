@@ -35,31 +35,24 @@ import { Database } from '@/database.types';
 import { getAllSuppliers } from '@/lib/data/suppliers';
 
 const formSchema = z.object({
-  title: z
-    .string()
-    .min(1, 'Le titre doit avoir au moins 5 caractères.')
-    .max(32, 'Le titre doit avoir au plus 32 caractères.'),
-  ref: z
-    .string()
-    .min(1, 'La réference doit avoir au moins 4 caractères.')
-    .max(100, 'La réference doit avoir au plus 100 caractères.'),
-  supplier: z.string().min(1, 'Le fournisseur est requis'), // 👈 ici c’est un ID (string)
-  price: z.preprocess(
-    (val) => {
-      if (typeof val === 'string') {
-        const normalized = val.replace(',', '.').trim();
-        const parsed = Number(normalized);
-        if (isNaN(parsed)) return undefined;
-        return parsed;
-      }
-      return val;
-    },
-    z
-      .number({
-        message: 'Le prix doit être un nombre valide',
-      })
-      .gt(0, 'Le prix doit être supérieur à 0'),
-  ),
+  title: z.string().min(1).max(32),
+  ref: z.string().min(1).max(100),
+
+  supplier: z.string().min(1),
+
+  pricingType: z.enum(['unit', 'm2', 'ml', 'm3', 'lot']),
+
+  unitMultiplier: z.preprocess((val) => Number(val), z.number().optional()),
+
+  price: z.preprocess((val) => {
+    if (typeof val === 'string') {
+      const normalized = val.replace(',', '.').trim();
+      const parsed = Number(normalized);
+      if (isNaN(parsed)) return undefined;
+      return parsed;
+    }
+    return val;
+  }, z.number().gt(0)),
 });
 
 export function AddProductForm() {
@@ -104,9 +97,12 @@ export function AddProductForm() {
       await createProduct({
         title: data.title,
         price: data.price,
-        supplier: supplierId, // 👈 ID propre
-        supplierName, // 👈 nom propre
+        supplier: supplierId,
+        supplierName,
         ref: data.ref,
+
+        pricing_type: data.pricingType, // ✅ snake_case
+        unit_multiplier: data.unitMultiplier ?? 1, // ✅ snake_case
       });
 
       form.reset();
@@ -148,7 +144,7 @@ export function AddProductForm() {
   }
 
   return (
-    <Card className="w-full sm:max-w-md">
+    <Card className="w-full max-w-s[80vw]">
       <CardHeader>
         <CardTitle>Nouveau produit</CardTitle>
         <CardDescription>
@@ -158,46 +154,50 @@ export function AddProductForm() {
       <CardContent>
         <form id="form-rhf-demo" onSubmit={form.handleSubmit(onSubmit)}>
           <FieldGroup>
-            <Controller
-              name="title"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="form-rhf-demo-title">Titre</FieldLabel>
-                  <Input
-                    {...field}
-                    id="form-rhf-demo-title"
-                    aria-invalid={fieldState.invalid}
-                    placeholder="Adhésif..."
-                    autoComplete="off"
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-
-            <Controller
-              name="ref"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="form-rhf-demo-ref">Réference</FieldLabel>
-                  <Input
-                    {...field}
-                    id="form-rhf-demo-ref"
-                    aria-invalid={fieldState.invalid}
-                    placeholder="A4B5C6"
-                    autoComplete="off"
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-
+            {/* INFOS */}
+            <div className="flex gap-6 items-center justify-center">
+              <Controller
+                name="title"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor="form-rhf-demo-title">Titre</FieldLabel>
+                    <Input
+                      {...field}
+                      id="form-rhf-demo-title"
+                      aria-invalid={fieldState.invalid}
+                      placeholder="Adhésif..."
+                      autoComplete="off"
+                    />
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
+              />
+              <Controller
+                name="ref"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor="form-rhf-demo-ref">
+                      Réference
+                    </FieldLabel>
+                    <Input
+                      {...field}
+                      id="form-rhf-demo-ref"
+                      aria-invalid={fieldState.invalid}
+                      placeholder="A4B5C6"
+                      autoComplete="off"
+                    />
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
+              />
+            </div>
+            {/* Fourniseur */}
             <Controller
               name="supplier"
               control={form.control}
@@ -228,20 +228,57 @@ export function AddProductForm() {
                 </Field>
               )}
             />
+            {/* PRIX  */}
+            <div className="flex gap-6 items-center justify-center">
+              <Controller
+                name="price"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel>Prix</FieldLabel>
+                    <Input {...field} placeholder="10,5" autoComplete="off" />
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
+              />
+              <Controller
+                name="pricingType"
+                control={form.control}
+                render={({ field }) => (
+                  <Field>
+                    <FieldLabel>Type de vente</FieldLabel>
 
-            <Controller
-              name="price"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel>Prix</FieldLabel>
-                  <Input {...field} placeholder="10,5" autoComplete="off" />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choisir une unité" />
+                      </SelectTrigger>
+
+                      <SelectContent>
+                        <SelectItem value="unit">Unité</SelectItem>
+                        <SelectItem value="m2">m²</SelectItem>
+                        <SelectItem value="ml">mètre linéaire</SelectItem>
+                        <SelectItem value="m3">m³</SelectItem>
+                        <SelectItem value="lot">Lot</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                )}
+              />
+              {form.watch('pricingType') === 'lot' && (
+                <Controller
+                  name="unitMultiplier"
+                  control={form.control}
+                  render={({ field }) => (
+                    <Field>
+                      <FieldLabel>Quantité par lot</FieldLabel>
+                      <Input {...field} placeholder="100" />
+                    </Field>
                   )}
-                </Field>
+                />
               )}
-            />
+            </div>
           </FieldGroup>
         </form>
       </CardContent>

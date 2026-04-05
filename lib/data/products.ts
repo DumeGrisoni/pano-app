@@ -18,6 +18,8 @@ export async function createProduct(data: {
   supplier: number;
   ref: string;
   supplierName: string;
+  pricing_type: string;
+  unit_multiplier: number;
 }) {
   const supabase = await createClient();
   const { error } = await supabase.from('Products').insert(data);
