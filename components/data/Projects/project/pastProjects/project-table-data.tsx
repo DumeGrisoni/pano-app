@@ -26,8 +26,15 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -40,6 +47,45 @@ export function DataTable<TData, TValue>({
 }: DataTableProps<TData, TValue>) {
   const [search, setSearch] = useState('');
 
+  const today = new Date();
+
+  const monthNames = [
+    'Janvier',
+    'Février',
+    'Mars',
+    'Avril',
+    'Mai',
+    'Juin',
+    'Juillet',
+    'Août',
+    'Septembre',
+    'Octobre',
+    'Novembre',
+    'Décembre',
+  ];
+
+  const [selectedYear, setSelectedYear] = useState<number>(today.getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState<number>(today.getMonth());
+
+  const years = useMemo(() => {
+    return Array.from(
+      new Set(data.map((row: any) => new Date(row.limitDate).getFullYear())),
+    ).sort((a, b) => b - a);
+  }, [data]);
+
+  const months = useMemo(() => {
+    return Array.from(
+      new Set(
+        data
+          .filter(
+            (row: any) =>
+              new Date(row.limitDate).getFullYear() === selectedYear,
+          )
+          .map((row: any) => new Date(row.limitDate).getMonth()),
+      ),
+    ).sort((a, b) => b - a);
+  }, [data, selectedYear]);
+
   // 🔥 colonnes memo
   const memoColumns = useMemo(() => columns, [columns]);
 
@@ -49,6 +95,16 @@ export function DataTable<TData, TValue>({
 
     return data
       .filter((row: any) => {
+        // 🔥 filtre date
+        const date = new Date(row.limitDate);
+
+        const matchesDate =
+          date.getFullYear() === selectedYear &&
+          date.getMonth() === selectedMonth;
+
+        if (!matchesDate) return false;
+
+        // 🔍 filtre texte
         const values = [row.title, row.clientFullName, row.status]
           .filter(Boolean)
           .join(' ')
@@ -66,7 +122,7 @@ export function DataTable<TData, TValue>({
 
         return dateA - dateB;
       });
-  }, [data, search]);
+  }, [data, search, selectedYear, selectedMonth]);
 
   // 🔥 table
   const table = useReactTable({
@@ -89,8 +145,49 @@ export function DataTable<TData, TValue>({
     (_, i) => i >= pageIndex - 2 && i <= pageIndex + 2,
   );
 
+  useEffect(() => {
+    if (months.length === 0) return;
+
+    if (!months.includes(selectedMonth)) {
+      setSelectedMonth(months[0]);
+    }
+  }, [months, selectedMonth]);
+
   return (
     <div className="flex flex-col gap-4">
+      <div className="flex gap-3">
+        <Select
+          value={selectedYear.toString()}
+          onValueChange={(v) => setSelectedYear(Number(v))}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {years.map((year) => (
+              <SelectItem key={year} value={year.toString()}>
+                {year}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={selectedMonth?.toString() ?? ''}
+          onValueChange={(v) => setSelectedMonth(Number(v))}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {months.map((month) => (
+              <SelectItem key={month} value={month.toString()}>
+                {monthNames[month]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
       {/* 🔍 Search */}
       <Input
         placeholder="Rechercher..."
