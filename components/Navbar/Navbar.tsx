@@ -18,7 +18,7 @@ const Navbar = () => {
 
   const navLinks = [
     { href: '/protected', label: 'ACCUEIL' },
-    { href: '/protected/products', label: 'PRODUITS' },
+    { href: '/protected/fournitures', label: 'FOURNITURES' },
     { href: '/protected/clients', label: 'CLIENTS' },
     { href: '/protected/projects', label: 'PROJETS' },
     { href: '/protected/orders', label: 'COMMANDES' },
@@ -26,8 +26,8 @@ const Navbar = () => {
   ];
 
   return isDesktop ? (
-    <div className="flex flex-col fixed w-40 h-[84vh] justify-between items-center px-5 py-3 border-r top-0 mt-[74px] left-0 bg-background">
-      <div className="flex flex-col items-center h-[50%] my-auto justify-between gap-4 p-4">
+    <div className="flex flex-col fixed w-40 h-[95vh] justify-between items-center px-5 py-3 border-r top-0 mt-[74px] left-0 bg-background">
+      <div className="flex flex-col items-center h-[50%] my-auto justify-between gap-4 px-4">
         {navLinks.map((link) => {
           const isActive = pathname === link.href;
 

@@ -3,6 +3,7 @@ import { Button } from './ui/button';
 import { createClient } from '@/lib/supabase/server';
 import { LogoutButton } from './logout-button';
 import { ThemeSwitcher } from './theme-switcher';
+import CartPopUp from './CartPopup';
 
 export async function AuthButton() {
   const supabase = await createClient();
@@ -21,6 +22,7 @@ export async function AuthButton() {
           : user.email}
       </span>
       <div className="flex ml-auto items-center md:justify-center gap-3">
+        <CartPopUp />
         <div className="md:block hidden">
           <LogoutButton />
         </div>

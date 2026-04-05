@@ -1,17 +1,17 @@
-import { createClient } from '@/lib/supabase/server';
 import { Suspense } from 'react';
 
-async function InstrumentsData() {
-  const supabase = await createClient();
-  const { data: instruments } = await supabase.from('Products').select();
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AddProjectForm } from '@/components/data/Projects/AddProjectForm';
+import ProjectList from '@/components/data/Projects/ProjectDatasList';
 
-  return <pre>{JSON.stringify(instruments, null, 2)}</pre>;
-}
+export default async function Products() {
+  if (!ProjectList) return <div>Aucun produit disponible</div>;
 
-export default function Instruments() {
   return (
-    <Suspense fallback={<div>Loading instruments...</div>}>
-      <InstrumentsData />
-    </Suspense>
+    <div className="flex w-[50vw] items-center justify-center">
+      <Suspense fallback={<div>Chargement...</div>}>
+        <ProjectList />
+      </Suspense>
+    </div>
   );
 }

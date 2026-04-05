@@ -19,9 +19,9 @@ export default function ProtectedLayout({
             <div className="flex mr-6 md:mr-0 gap-5 items-center justify-center ">
               <Image
                 src="/images/logo.svg"
-                alt="Vista Studio"
+                alt="Pano Bastia Logo"
                 width={40}
-                height={50}
+                height={40}
               />
               <Link
                 href={'/'}
@@ -38,30 +38,34 @@ export default function ProtectedLayout({
               </Suspense>
             )}
           </div>
-          <Navbar />
+          <Suspense fallback={<div>Chargement...</div>}>
+            <Navbar />
+          </Suspense>
         </nav>
         <div className="flex-1 flex flex-col gap-20 md:max-w-5xl p-5 mt-20 md:mt-32 md:ml-40">
           {children}
         </div>
 
-        <footer className="w-full flex items-center justify-center border-t mx-auto text-center text-xs gap-8 py-[2vh]">
+        <footer className="w-full flex items-center justify-center border-t mx-auto text-center text-xs gap-8 ">
           <p className="flex items-center justify-center gap-3">
             Réaliser par{' '}
-            <a
-              href="https://vista-studio.vercel.app/dev-web"
-              target="_blank"
-              className="font-bold hover:underline"
-              rel="noreferrer"
-            >
+          </p>
+          <Link
+            href="https://vista-studio.vercel.app/dev-web"
+            target="_blank"
+            className="font-bold hover:underline"
+            rel="noreferrer"
+          >
+            <div className="relative w-20 h-20">
               <Image
                 src="/images/vistalogo.svg"
                 alt="Vista Studio"
-                width={80}
-                height={100}
-                className="dark:invert hover:dark:invert-0 transition-all duration-200"
+                fill
+                className="object-contain dark:invert hover:dark:invert-0 transition-all duration-200"
+                loading="eager"
               />
-            </a>
-          </p>
+            </div>
+          </Link>
         </footer>
       </div>
     </main>

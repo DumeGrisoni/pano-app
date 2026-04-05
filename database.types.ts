@@ -39,24 +39,249 @@ export type Database = {
   }
   public: {
     Tables: {
+      Clients: {
+        Row: {
+          address: string | null
+          city: string | null
+          created_at: string
+          entreprise: string | null
+          id: number
+          mail: string | null
+          name: string | null
+          phone: number | null
+          postalCode: number | null
+          siret: string | null
+          surname: string | null
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          entreprise?: string | null
+          id?: number
+          mail?: string | null
+          name?: string | null
+          phone?: number | null
+          postalCode?: number | null
+          siret?: string | null
+          surname?: string | null
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          entreprise?: string | null
+          id?: number
+          mail?: string | null
+          name?: string | null
+          phone?: number | null
+          postalCode?: number | null
+          siret?: string | null
+          surname?: string | null
+        }
+        Relationships: []
+      }
+      Commande_items: {
+        Row: {
+          checked: boolean | null
+          commandeId: number | null
+          created_at: string
+          id: number
+          productId: number | null
+          productName: string | null
+          productRef: string | null
+          quantity: number | null
+        }
+        Insert: {
+          checked?: boolean | null
+          commandeId?: number | null
+          created_at?: string
+          id?: number
+          productId?: number | null
+          productName?: string | null
+          productRef?: string | null
+          quantity?: number | null
+        }
+        Update: {
+          checked?: boolean | null
+          commandeId?: number | null
+          created_at?: string
+          id?: number
+          productId?: number | null
+          productName?: string | null
+          productRef?: string | null
+          quantity?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "Commande_items_commandeId_fkey"
+            columns: ["commandeId"]
+            isOneToOne: false
+            referencedRelation: "Commandes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Commande_items_productId_fkey"
+            columns: ["productId"]
+            isOneToOne: false
+            referencedRelation: "Products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      Commandes: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: number
+          note: string | null
+          status: string | null
+          supplierId: number | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: number
+          note?: string | null
+          status?: string | null
+          supplierId?: number | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: number
+          note?: string | null
+          status?: string | null
+          supplierId?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "Commandes_supplierId_fkey"
+            columns: ["supplierId"]
+            isOneToOne: false
+            referencedRelation: "Suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       Products: {
         Row: {
           created_at: string
           id: number
           price: number
+          ref: string
+          supplier: number | null
+          supplierName: string | null
           title: string | null
         }
         Insert: {
           created_at?: string
           id?: number
           price: number
+          ref: string
+          supplier?: number | null
+          supplierName?: string | null
           title?: string | null
         }
         Update: {
           created_at?: string
           id?: number
           price?: number
+          ref?: string
+          supplier?: number | null
+          supplierName?: string | null
           title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "Products_supplier_fkey"
+            columns: ["supplier"]
+            isOneToOne: false
+            referencedRelation: "Suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      Projects: {
+        Row: {
+          clientFullName: string | null
+          clientId: number | null
+          created_at: string
+          entreprise: string | null
+          id: number
+          isUrgent: boolean | null
+          limitDate: string | null
+          note: string | null
+          status: string | null
+          tasks: Json[] | null
+          title: string | null
+        }
+        Insert: {
+          clientFullName?: string | null
+          clientId?: number | null
+          created_at?: string
+          entreprise?: string | null
+          id?: number
+          isUrgent?: boolean | null
+          limitDate?: string | null
+          note?: string | null
+          status?: string | null
+          tasks?: Json[] | null
+          title?: string | null
+        }
+        Update: {
+          clientFullName?: string | null
+          clientId?: number | null
+          created_at?: string
+          entreprise?: string | null
+          id?: number
+          isUrgent?: boolean | null
+          limitDate?: string | null
+          note?: string | null
+          status?: string | null
+          tasks?: Json[] | null
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "Projects_clientId_fkey"
+            columns: ["clientId"]
+            isOneToOne: false
+            referencedRelation: "Clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      Suppliers: {
+        Row: {
+          connectEmail: string | null
+          connectPassword: string | null
+          created_at: string
+          id: number
+          name: string | null
+          phone: number | null
+          supplierEmail: string | null
+          website: string | null
+        }
+        Insert: {
+          connectEmail?: string | null
+          connectPassword?: string | null
+          created_at?: string
+          id?: number
+          name?: string | null
+          phone?: number | null
+          supplierEmail?: string | null
+          website?: string | null
+        }
+        Update: {
+          connectEmail?: string | null
+          connectPassword?: string | null
+          created_at?: string
+          id?: number
+          name?: string | null
+          phone?: number | null
+          supplierEmail?: string | null
+          website?: string | null
         }
         Relationships: []
       }
