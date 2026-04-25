@@ -58,7 +58,6 @@ const formSchema = z.object({
       })
       .gt(0, 'Le CodePostal doit être supérieur à 0'),
   ),
-  siret: z.string(),
   address: z
     .string()
     .min(1, 'L adresse doit avoir au moins 1 caractères.')
@@ -107,7 +106,6 @@ export function UpdateClientForm({
       surname: client.surname || '',
       entreprise: client.entreprise || '',
       postalCode: client.postalCode || 0,
-      siret: client.siret || '',
       address: client.address || '',
       phone: client.phone || 0,
       mail: client.mail || '',
@@ -124,7 +122,6 @@ export function UpdateClientForm({
         surname: data.surname,
         entreprise: data.entreprise,
         postalCode: data.postalCode,
-        siret: data.siret,
         address: data.address,
         phone: data.phone,
         mail: data.mail,
@@ -195,49 +192,30 @@ export function UpdateClientForm({
                 )}
               />
             </div>
-            {/* ENTREPRISE ET SIRET */}
-            <div className="flex justify-between items-center gap-8">
-              <Controller
-                name="entreprise"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="form-rhf-demo-entreprise">
-                      Entreprise
-                    </FieldLabel>
-                    <Input
-                      {...field}
-                      id="form-rhf-demo-entreprise"
-                      aria-invalid={fieldState.invalid}
-                      placeholder="Resturant du Cap..."
-                      autoComplete="off"
-                    />
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                )}
-              />
-              <Controller
-                name="siret"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="form-rhf-demo-siret">SIRET</FieldLabel>
-                    <Input
-                      {...field}
-                      id="form-rhf-demo-siret"
-                      aria-invalid={fieldState.invalid}
-                      placeholder="Jean..."
-                      autoComplete="off"
-                    />
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                )}
-              />
-            </div>
+            {/* ENTREPRISE  */}
+
+            <Controller
+              name="entreprise"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor="form-rhf-demo-entreprise">
+                    Entreprise
+                  </FieldLabel>
+                  <Input
+                    {...field}
+                    id="form-rhf-demo-entreprise"
+                    aria-invalid={fieldState.invalid}
+                    placeholder="Resturant du Cap..."
+                    autoComplete="off"
+                  />
+                  {fieldState.invalid && (
+                    <FieldError errors={[fieldState.error]} />
+                  )}
+                </Field>
+              )}
+            />
+
             {/* ADRESSE PAYS ET CODE POSTAL */}
             <div className="flex justify-between items-center gap-8">
               <Controller

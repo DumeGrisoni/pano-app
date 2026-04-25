@@ -29,10 +29,6 @@ export const clientColumns: ColumnDef<
     header: 'Entreprise',
   },
   {
-    accessorKey: 'siret',
-    header: 'Siret',
-  },
-  {
     id: 'see',
     header: () => <div className="text-center">Voir</div>,
     cell: ({ row }) => {

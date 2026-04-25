@@ -50,7 +50,6 @@ export type Database = {
           name: string | null
           phone: number | null
           postalCode: number | null
-          siret: string | null
           surname: string | null
         }
         Insert: {
@@ -63,7 +62,6 @@ export type Database = {
           name?: string | null
           phone?: number | null
           postalCode?: number | null
-          siret?: string | null
           surname?: string | null
         }
         Update: {
@@ -76,7 +74,6 @@ export type Database = {
           name?: string | null
           phone?: number | null
           postalCode?: number | null
-          siret?: string | null
           surname?: string | null
         }
         Relationships: []
