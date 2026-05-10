@@ -724,7 +724,7 @@ export default function ProjectContent() {
   }
 
   return (
-    <div className="w-full flex flex-col gap-6">
+    <div className="w-full flex flex-col gap-6 ">
       <div className="flex items-center justify-between">
         <Select
           value={project.status || ''}
@@ -742,7 +742,6 @@ export default function ProjectContent() {
           <SelectTrigger className="w-auto px-2">
             <SelectValue placeholder="Choisir un statut" />
           </SelectTrigger>
-
           <SelectContent side="bottom" align="start" position="popper">
             {Object.entries(PROJECT_STATUS).map(([key, value]) => (
               <SelectItem key={key} value={key}>
@@ -761,7 +760,11 @@ export default function ProjectContent() {
                                 ? 'bg-orange-500'
                                 : value.color === 'amber'
                                   ? 'bg-amber-500'
-                                  : 'bg-green-500'
+                                  : value.color === 'cyan'
+                                    ? 'bg-cyan-500'
+                                    : value.color === 'lime'
+                                      ? 'bg-lime-500'
+                                      : 'bg-gray-500'
                     }`}
                   />
                   <span>{value.label}</span>

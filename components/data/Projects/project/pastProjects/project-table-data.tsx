@@ -22,8 +22,6 @@ import {
   PaginationContent,
   PaginationItem,
   PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
 } from '@/components/ui/pagination';
 
 import { useEffect, useMemo, useState } from 'react';

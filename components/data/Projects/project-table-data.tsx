@@ -96,7 +96,7 @@ export function DataTable<TData, TValue>({
         placeholder="Rechercher..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        className="max-w-sm"
+        className="w-[50%] mx-auto"
       />
 
       {/* 📊 Table */}

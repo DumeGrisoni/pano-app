@@ -6,7 +6,7 @@ import React, { Suspense } from 'react';
 const Orders = async () => {
   return (
     <div>
-      <div className="flex items-center justify-center">
+      <div className="flex items-center justify-center mx-auto">
         <Tabs
           defaultValue="clientList"
           className="lg:w-[80vw] md:w-[70vw]  mx-auto flex items-center justify-center"

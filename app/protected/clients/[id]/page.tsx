@@ -7,8 +7,10 @@ export default function ClientPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <Suspense fallback={<div>Chargement...</div>}>
-      <ClientContent params={params} />
-    </Suspense>
+    <div className="flex items-center justify-center w-[50vw] mx-auto">
+      <Suspense fallback={<div>Chargement...</div>}>
+        <ClientContent params={params} />
+      </Suspense>
+    </div>
   );
 }

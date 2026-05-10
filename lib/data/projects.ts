@@ -22,7 +22,7 @@ export async function getDoneProjects() {
   const { data, error } = await supabase
     .from('Projects')
     .select()
-    .eq('status', 'DONE'); // 👈 uniquement les terminés
+    .eq('status', 'PAYED'); // 👈 uniquement les terminés
 
   if (error) throw error;
 

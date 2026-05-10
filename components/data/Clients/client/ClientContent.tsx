@@ -15,7 +15,7 @@ export default async function ClientContent({
   const client = await getClient(id);
 
   return (
-    <div className="flex items-center justify-center">
+    <div className="flex w-full items-center justify-center ">
       <Tabs
         defaultValue="clientList"
         className="lg:w-[80vw] md:w-[70vw]  mx-auto flex items-center justify-center"

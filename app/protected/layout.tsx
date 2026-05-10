@@ -42,7 +42,7 @@ export default function ProtectedLayout({
             <Navbar />
           </Suspense>
         </nav>
-        <div className="flex-1 flex flex-col gap-20 md:max-w-5xl p-5 mt-20 md:mt-32 md:ml-40">
+        <div className="flex-1 flex flex-col gap-20 w-full md:max-w-[90rem] p-5 mt-20 md:mt-32 md:ml-40">
           {children}
         </div>
 
