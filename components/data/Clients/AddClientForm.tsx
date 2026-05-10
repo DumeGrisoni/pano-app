@@ -24,76 +24,54 @@ import {
 import { Input } from '@/components/ui/input';
 
 import { createNewClient } from '@/lib/data/clients';
+import { useRouter } from 'next/navigation';
 
 const formSchema = z.object({
-  name: z
-    .string()
-    .min(1, 'Le nom doit avoir au moins 1 caractères.')
-    .max(32, 'Le nom doit avoir au plus 32 caractères.'),
-  surname: z
-    .string()
-    .min(1, 'Le prénom doit avoir au moins 1 caractères.')
-    .max(32, 'Le prénom doit avoir au plus 32 caractères.'),
+  name: z.string(),
+  surname: z.string(),
   entreprise: z.string(),
-  postalCode: z.preprocess(
-    (val) => {
-      if (typeof val === 'string') {
-        // Remplace virgule par point + trim
-        const normalized = val.replace(',', '.').trim();
+  postalCode: z
+    .preprocess(
+      (val) => {
+        if (typeof val === 'string') {
+          // Remplace virgule par point + trim
+          const normalized = val.replace(',', '.').trim();
 
-        const parsed = Number(normalized);
+          const parsed = Number(normalized);
 
-        // Si NaN → invalide
-        if (isNaN(parsed)) return undefined;
+          // Si NaN → invalide
+          if (isNaN(parsed)) return undefined;
 
-        return parsed;
-      }
+          return parsed;
+        }
 
-      return val;
-    },
-    z
-      .number({
+        return val;
+      },
+      z.number({
         message: 'Le CodePostal doit être un nombre valide',
-      })
-      .gt(0, 'Le CodePostal doit être supérieur à 0'),
-  ),
-  address: z
+      }),
+    )
+    .optional(),
+  address: z.string().optional(),
+  phone: z
     .string()
-    .min(1, 'L adresse doit avoir au moins 1 caractères.')
-    .max(255, 'L adresse doit avoir au plus 255 caractères.'),
-  phone: z.preprocess(
-    (val) => {
-      if (typeof val === 'string') {
-        // Remplace virgule par point + trim
-        const normalized = val.replace(',', '.').trim();
+    .trim()
+    .regex(/^\d+$/, 'Le téléphone ne doit contenir que des chiffres')
+    .regex(
+      /^0\d{9}$/,
+      'Le téléphone doit contenir 10 chiffres et commencer par 0',
+    )
+    .or(z.literal('')),
+  mail: z.string().optional(),
 
-        const parsed = Number(normalized);
+  city: z.string().optional(),
 
-        // Si NaN → invalide
-        if (isNaN(parsed)) return undefined;
-
-        return parsed;
-      }
-
-      return val;
-    },
-    z
-      .number({
-        message: 'Le téléphone doit être un nombre valide',
-      })
-      .gt(0, 'Le Téléphone doit être supérieur à 0'),
-  ),
-  mail: z
-    .string()
-    .min(1, 'Le mail doit avoir au moins 1 caractères.')
-    .max(45, 'Le mail doit avoir au plus 45 caractères.'),
-  city: z
-    .string()
-    .min(1, 'La ville doit avoir au moins 1 caractères.')
-    .max(45, 'La ville doit avoir au plus 45 caractères.'),
+  siret: z.string().optional(),
 });
 
 export function AddClientForm() {
+  const router = useRouter();
+
   const form = useForm<z.output<typeof formSchema>>({
     resolver: zodResolver(formSchema) as any,
     defaultValues: {
@@ -102,9 +80,10 @@ export function AddClientForm() {
       entreprise: '',
       postalCode: 0,
       address: '',
-      phone: 0,
+      phone: '',
       mail: '',
       city: '',
+      siret: '',
     },
   });
 
@@ -112,7 +91,7 @@ export function AddClientForm() {
     await new Promise((res) => setTimeout(res, 300)); // fake API
 
     try {
-      await createNewClient({
+      const newClient = await createNewClient({
         name: data.name,
         surname: data.surname,
         entreprise: data.entreprise,
@@ -121,6 +100,7 @@ export function AddClientForm() {
         phone: data.phone,
         mail: data.mail,
         city: data.city,
+        siret: data.siret,
       });
       form.reset();
       toast(
@@ -128,6 +108,8 @@ export function AddClientForm() {
           Client ajouté
         </p>,
       );
+
+      router.push(`/protected/clients/${newClient.id}`);
     } catch (error) {
       toast.error('Une erreur est survenue');
     }
@@ -187,29 +169,49 @@ export function AddClientForm() {
                 )}
               />
             </div>
-            {/* ENTREPRISE */}
-            <Controller
-              name="entreprise"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="form-rhf-demo-entreprise">
-                    Entreprise
-                  </FieldLabel>
-                  <Input
-                    {...field}
-                    id="form-rhf-demo-entreprise"
-                    aria-invalid={fieldState.invalid}
-                    placeholder="Resturant du Cap..."
-                    autoComplete="off"
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-
+            <div className="flex justify-between items-center gap-8">
+              {/* ENTREPRISE */}
+              <Controller
+                name="entreprise"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor="form-rhf-demo-entreprise">
+                      Entreprise
+                    </FieldLabel>
+                    <Input
+                      {...field}
+                      id="form-rhf-demo-entreprise"
+                      aria-invalid={fieldState.invalid}
+                      placeholder="Resturant du Cap..."
+                      autoComplete="off"
+                    />
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
+              />
+              <Controller
+                name="siret"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor="form-rhf-demo-siret">SIRET</FieldLabel>
+                    <Input
+                      {...field}
+                      id="form-rhf-demo-siret"
+                      aria-invalid={fieldState.invalid}
+                      placeholder="A74FF"
+                      autoComplete="off"
+                    />
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
+              />
+            </div>
             {/* ADRESSE PAYS ET CODE POSTAL */}
             <div className="flex justify-between items-center gap-8">
               <Controller

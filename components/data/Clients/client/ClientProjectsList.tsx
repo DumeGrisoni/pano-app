@@ -2,9 +2,10 @@
 import { Button } from '@/components/ui/button';
 import { Database } from '@/database.types';
 import React, { Suspense, useState } from 'react';
-import { AddProjectForm } from '../../Projects/AddProjectForm';
+
 import { X } from 'lucide-react';
 import ClientProjectTable from './ClientProjectTable';
+import { AddProjectForm } from '../../Projects/AddProjectForm';
 
 const ClientProjectsList = ({
   client,
@@ -22,7 +23,7 @@ const ClientProjectsList = ({
       )}
 
       {modalOpen && (
-        <div className="flex gap-2">
+        <div className="flex gap-2 w-full">
           <AddProjectForm client={client} />
           <Button onClick={() => setModalOpen(!modalOpen)} size={'icon'}>
             <X />

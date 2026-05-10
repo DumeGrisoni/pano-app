@@ -1,6 +1,23 @@
 'use client';
 
+import 'react-datepicker/dist/react-datepicker.css';
+
+import { useEffect, useMemo, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { toast } from 'sonner';
+import DatePicker, { registerLocale } from 'react-datepicker';
+import { fr } from 'date-fns/locale/fr';
+import { Eye, Printer, Trash } from 'lucide-react';
+
 import { getProject, updateProject } from '@/lib/data/projects';
+import { getProducts } from '@/lib/data/products';
+import { getClient } from '@/lib/data/clients';
+import { Database } from '@/database.types';
+import { PROJECT_STATUS } from '@/lib/project-status';
+import { ProjectPDF } from '@/lib/generatePDF';
+
+import { SearchBar } from '@/components/SearchBar';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -9,9 +26,11 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { use, useEffect, useState } from 'react';
-import { Database } from '@/database.types';
-import { usePathname } from 'next/navigation';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
+import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -20,24 +39,58 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-import { PROJECT_STATUS } from '@/lib/project-status';
-import { getProducts } from '@/lib/data/products';
-import { SearchBar } from '@/components/SearchBar';
-import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
-import { Eye, Printer, Trash, X } from 'lucide-react';
-import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
-import { Checkbox } from '@/components/ui/checkbox';
-import { FieldLabel } from '@/components/ui/field';
-import { ProjectPDF } from '@/lib/generatePDF';
-import { getClient } from '@/lib/data/clients';
+registerLocale('fr', fr);
 
-type pricing_type = 'unit' | 'm2' | 'ml' | 'm3' | 'lot';
+type PricingType = 'unit' | 'm2' | 'ml' | 'm3' | 'lot';
+
+type GoodieOptions = {
+  option1?: string;
+  option2?: string;
+  placement?: string;
+};
+
+type BacheFinition =
+  | 'brut'
+  | 'oeillets_500'
+  | 'oeillets_1000'
+  | 'oeillets_coins';
+
+type BacheOptions = {
+  finition?: BacheFinition;
+};
+
+type BundleComponent = {
+  productId: number;
+  productName: string;
+  productType?: string;
+  type?: string;
+  unitPrice?: number;
+  pricing_type?: PricingType;
+  unit_multiplier?: number;
+};
 
 type Item = {
   productId: number;
   productName: string;
+  productType?: string;
+  type?: string;
+
+  cutOptions?: {
+    color?: string;
+    ral?: string;
+  };
+
+  tintedFilmOptions?: {
+    pose?: 'inter' | 'exter';
+    ref?: string;
+  };
+
+  components?: BundleComponent[] | BundleComponent | string;
+
+  isCustom?: boolean;
+  customName?: string;
+  customPrice?: number;
+
   quantity: number;
 
   width?: number;
@@ -45,102 +98,408 @@ type Item = {
   length?: number;
   depth?: number;
 
+  option1?: string;
+  option2?: string;
+
+  diffusant?: boolean | null;
+
+  plastifEnabled?: boolean;
+  plastifProductId?: number;
+  plastifProductName?: string;
+
   unitPrice: number;
 
-  pricing_type: pricing_type;
+  pricing_type: PricingType;
   unit_multiplier?: number;
+
+  goodieOptions?: GoodieOptions;
+  bacheOptions?: BacheOptions;
 };
 
 type ProjectMetadata = {
-  isProd?: boolean;
-  isGraphisme?: boolean;
+  isFile?: boolean;
+  isBAT?: boolean;
+
   isPose?: boolean;
-  isProducts?: boolean;
-  note?: string;
-  prodNote?: string;
-  graphismeNote?: string;
-  poseNote?: string;
+  poseDate?: string;
+  isNacelle?: boolean;
+  poseAdresse?: string;
+
   items?: Item[];
 };
 
+function normalizeText(value: unknown) {
+  return String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+function normalizeType(value: unknown) {
+  return String(value ?? '')
+    .trim()
+    .toLowerCase();
+}
+
+function normalizeComponents(raw: unknown): BundleComponent[] {
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+
+    if (Array.isArray(parsed)) return parsed;
+
+    if (parsed && typeof parsed === 'object') {
+      return [parsed as BundleComponent];
+    }
+
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+function titleNeedsBacheFinishing(title: unknown) {
+  const text = normalizeText(title);
+
+  return (
+    text.includes('bache') || text.includes('meche') || text.includes('toile')
+  );
+}
+
+function titleNeedsPlastif(title: unknown) {
+  const text = normalizeText(title);
+
+  return text.includes('vinyle') || text.includes('vinyl');
+}
+
 export default function ProjectContent() {
+  const pathname = usePathname();
+  const id = pathname.split('/').pop();
+
   const [project, setProject] = useState<
     Database['public']['Tables']['Projects']['Row']
   >({} as Database['public']['Tables']['Projects']['Row']);
-  const [products, setProducts] = useState<any[]>([]);
-  const [openModal, setOpenModal] = useState(false);
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const [items, setItems] = useState<Item[]>([]);
-  const [note, setNote] = useState('');
-  const [title, setTitle] = useState('');
-  const [isProd, setIsProd] = useState(false);
-  const [isGraphisme, setIsGraphisme] = useState(false);
-  const [isPose, setIsPose] = useState(false);
-  const [isProducts, setIsProducts] = useState(false);
-  const [prodNote, setProdNote] = useState('');
-  const [graphismeNote, setGraphismeNote] = useState('');
-  const [poseNote, setPoseNote] = useState('');
-  const [pdfType, setPdfType] = useState<
-    'prod' | 'graphisme' | 'pose' | 'all' | ''
-  >('');
-  const [previewPDF, setPreviewPDF] = useState(false);
+
   const [client, setClient] = useState<
     Database['public']['Tables']['Clients']['Row']
   >({} as Database['public']['Tables']['Clients']['Row']);
 
-  const params = usePathname();
+  const [products, setProducts] = useState<
+    Database['public']['Tables']['Products']['Row'][]
+  >([]);
 
-  const id = params.split('/').pop();
+  const [title, setTitle] = useState('');
+  const [note, setNote] = useState('');
+  const [limitDate, setLimitDate] = useState<Date | null>(new Date());
+  const [isUrgent, setIsUrgent] = useState(false);
+
+  const [isFile, setIsFile] = useState(false);
+  const [isBAT, setIsBAT] = useState(false);
+
+  const [isPose, setIsPose] = useState(false);
+  const [poseDate, setPoseDate] = useState<Date | null>(new Date());
+  const [isNacelle, setIsNacelle] = useState(false);
+  const [poseAdresse, setPoseAdresse] = useState('');
+
+  const [items, setItems] = useState<Item[]>([]);
+  const [openModal, setOpenModal] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+
+  const [previewPDF, setPreviewPDF] = useState(false);
+
+  const plastifProducts = useMemo(() => {
+    return products.filter((product) =>
+      normalizeText(product.title).includes('plastif'),
+    );
+  }, [products]);
 
   const computedMetadata: ProjectMetadata = {
-    isProd,
-    isGraphisme,
+    isFile,
+    isBAT,
     isPose,
-    isProducts,
+    poseDate: poseDate?.toISOString(),
+    isNacelle,
+    poseAdresse,
     items,
-    prodNote,
-    graphismeNote,
-    poseNote,
   };
 
-  const saveAll = () => {
-    const currentMetaData = (project.metadata ?? {}) as ProjectMetadata;
+  useEffect(() => {
+    async function fetchData() {
+      if (!id) return;
 
-    const newMetaData = {
-      ...currentMetaData,
-      isProd,
-      isGraphisme,
-      isPose,
-      isProducts,
-      ...(isProducts && { items }),
-      ...(isProd && { prodNote }),
-      ...(isGraphisme && { graphismeNote }),
-      ...(isPose && { poseNote }),
-    };
-    updateProject(project.id, {
-      title: title,
-      note: note,
-      metadata: newMetaData,
-    });
-  };
+      const projectData = await getProject(Number(id));
+      const productsData = await getProducts();
 
-  const updateItems = (newItems: any[]) => {
+      setProject(projectData);
+      setProducts(productsData);
+
+      const metadata = (projectData.metadata ?? {}) as ProjectMetadata;
+
+      setTitle(projectData.title ?? '');
+      setNote(projectData.note ?? '');
+      setIsUrgent(projectData.isUrgent ?? false);
+      setLimitDate(
+        projectData.limitDate ? new Date(projectData.limitDate) : new Date(),
+      );
+
+      setIsFile(metadata.isFile ?? false);
+      setIsBAT(metadata.isBAT ?? false);
+
+      setIsPose(metadata.isPose ?? false);
+      setPoseDate(metadata.poseDate ? new Date(metadata.poseDate) : new Date());
+      setIsNacelle(metadata.isNacelle ?? false);
+      setPoseAdresse(metadata.poseAdresse ?? '');
+
+      setItems(metadata.items ?? []);
+
+      if (projectData.clientId) {
+        const clientData = await getClient(projectData.clientId.toString());
+        setClient(clientData);
+      }
+    }
+
+    fetchData();
+  }, [id]);
+
+  function updateItems(newItems: Item[]) {
     setItems(newItems);
-  };
+  }
+
+  function getProductById(productId?: number) {
+    return products.find((product) => Number(product.id) === Number(productId));
+  }
+
+  function getComponentType(component: BundleComponent) {
+    const directType = normalizeType(component.productType ?? component.type);
+
+    if (directType) return directType;
+
+    const linkedProduct = getProductById(component.productId);
+
+    return normalizeType((linkedProduct as any)?.type);
+  }
+
+  function getComponentName(component: BundleComponent) {
+    if (component.productName) return component.productName;
+
+    const linkedProduct = getProductById(component.productId);
+
+    return String(linkedProduct?.title ?? '');
+  }
+
+  function itemComponents(item: Item) {
+    return normalizeComponents(item.components);
+  }
+
+  function itemType(item: Item) {
+    return normalizeType(item.productType ?? item.type);
+  }
+
+  function itemIsBundle(item: Item) {
+    return itemType(item) === 'bundle' || itemComponents(item).length > 0;
+  }
+
+  function itemHasComponentType(item: Item, type: string) {
+    return itemComponents(item).some(
+      (component) => getComponentType(component) === type,
+    );
+  }
+
+  function itemHasGoodie(item: Item) {
+    return itemType(item) === 'goodie' || itemHasComponentType(item, 'goodie');
+  }
+
+  function itemHasSupport(item: Item) {
+    return (
+      itemType(item) === 'support' || itemHasComponentType(item, 'support')
+    );
+  }
+
+  function itemHasMedia(item: Item) {
+    return itemType(item) === 'media' || itemHasComponentType(item, 'media');
+  }
+
+  function itemHasOtherOnly(item: Item) {
+    return (
+      item.isCustom || itemType(item) === 'other' || itemType(item) === 'autre'
+    );
+  }
+
+  function itemNeedsDimensions(item: Item) {
+    if (itemHasSupport(item)) return true;
+
+    return false;
+  }
+
+  function itemNeedsGoodieOptions(item: Item) {
+    return itemHasGoodie(item) && !itemNeedsDimensions(item);
+  }
+
+  function itemNeedsBundleGoodiePlacement(item: Item) {
+    return itemIsBundle(item) && itemHasGoodie(item);
+  }
+
+  function itemNeedsDiffusant(item: Item) {
+    return itemIsBundle(item) && itemHasSupport(item);
+  }
+
+  function itemNeedsBacheFinishing(item: Item) {
+    if (!itemHasMedia(item) && !itemHasSupport(item)) return false;
+
+    if (titleNeedsBacheFinishing(item.productName)) return true;
+
+    return itemComponents(item).some((component) =>
+      titleNeedsBacheFinishing(getComponentName(component)),
+    );
+  }
+
+  function itemNeedsPlastif(item: Item) {
+    if (!itemHasMedia(item)) return false;
+
+    if (titleNeedsPlastif(item.productName)) return true;
+
+    return itemComponents(item).some((component) => {
+      const componentType = getComponentType(component);
+      const componentName = getComponentName(component);
+
+      return componentType === 'media' && titleNeedsPlastif(componentName);
+    });
+  }
+
+  function itemNeedsCutOptions(item: Item) {
+    if (itemHasGoodie(item)) return false;
+
+    const texts = [
+      item.productName,
+      ...itemComponents(item).map((component) => getComponentName(component)),
+    ];
+
+    return texts.some((title) => {
+      const text = normalizeText(title);
+
+      return (
+        text.includes('decoupe adhesive') ||
+        text.includes('decoupe adhesif') ||
+        text.includes('adhesif decoupe') ||
+        text.includes('adhesive decoupe')
+      );
+    });
+  }
+
+  function itemNeedsTintedFilmOptions(item: Item) {
+    const texts = [
+      item.productName,
+      ...itemComponents(item).map((component) => getComponentName(component)),
+    ];
+
+    return texts.some((title) => {
+      const text = normalizeText(title);
+
+      return (
+        text.includes('film teinte') ||
+        text.includes('film teintee') ||
+        text.includes('teinte')
+      );
+    });
+  }
+
+  function productHasType(
+    product: Database['public']['Tables']['Products']['Row'],
+    type: string,
+  ) {
+    const productType = normalizeType((product as any).type);
+
+    if (productType === type) return true;
+
+    const components = normalizeComponents((product as any).components);
+
+    return components.some((component) => getComponentType(component) === type);
+  }
+
+  function productNeedsBacheFinishing(
+    product: Database['public']['Tables']['Products']['Row'],
+  ) {
+    if (
+      !productHasType(product, 'media') &&
+      !productHasType(product, 'support')
+    ) {
+      return false;
+    }
+
+    if (titleNeedsBacheFinishing(product.title)) return true;
+
+    const components = normalizeComponents((product as any).components);
+
+    return components.some((component) =>
+      titleNeedsBacheFinishing(getComponentName(component)),
+    );
+  }
+
+  function productNeedsPlastif(
+    product: Database['public']['Tables']['Products']['Row'],
+  ) {
+    if (!productHasType(product, 'media')) return false;
+
+    if (titleNeedsPlastif(product.title)) return true;
+
+    const components = normalizeComponents((product as any).components);
+
+    return components.some((component) => {
+      const componentType = getComponentType(component);
+      const componentName = getComponentName(component);
+
+      return componentType === 'media' && titleNeedsPlastif(componentName);
+    });
+  }
+
+  function setBacheFinition(index: number, finition: BacheFinition) {
+    const copy = [...items];
+
+    copy[index].bacheOptions = {
+      ...copy[index].bacheOptions,
+      finition,
+    };
+
+    updateItems(copy);
+  }
+
+  function setDiffusant(index: number, value: boolean) {
+    const copy = [...items];
+
+    copy[index].diffusant = value;
+
+    updateItems(copy);
+  }
 
   function getItemTotal(item: Item) {
     const qty = Number(item.quantity);
-    const price = Number(item.unitPrice);
+
+    const price = item.isCustom
+      ? Number(item.customPrice)
+      : Number(item.unitPrice);
 
     if (!qty || !price) return 0;
+
+    const shouldUseSimpleQtyPrice =
+      itemHasGoodie(item) || itemHasOtherOnly(item);
+
+    if (shouldUseSimpleQtyPrice) {
+      return price * qty;
+    }
 
     switch (item.pricing_type) {
       case 'unit':
         return price * qty;
 
       case 'ml': {
-        const length = (Number(item.length ?? item.width) || 0) / 1000;
-        return length * price * qty;
+        const width = (Number(item.width) || 0) / 1000;
+        const height = (Number(item.height) || 0) / 1000;
+
+        if (height > 0) {
+          return width * height * price * qty;
+        }
+
+        return width * price * qty;
       }
 
       case 'm2': {
@@ -166,17 +525,172 @@ export default function ProjectContent() {
     }
   }
 
-  const handlePrint = () => {
-    const content = document.getElementById('pdf-preview');
-    if (!content) {
-      console.log('preview non monté');
-      return;
+  function validateProjectDetails() {
+    if (items.length === 0) {
+      toast.error('Ajoute au moins un produit');
+      return false;
     }
+
+    for (const item of items) {
+      const name = item.isCustom ? item.customName : item.productName;
+
+      if (!name?.trim()) {
+        toast.error('Un produit n’a pas de nom');
+        return false;
+      }
+
+      if (!item.quantity || item.quantity <= 0) {
+        toast.error(`Quantité invalide pour ${name}`);
+        return false;
+      }
+
+      if (item.isCustom && (!item.customPrice || item.customPrice <= 0)) {
+        toast.error(`Prix invalide pour ${name}`);
+        return false;
+      }
+
+      if (!item.isCustom && !item.productId) {
+        toast.error(`Produit non sélectionné : ${name}`);
+        return false;
+      }
+
+      if (itemNeedsTintedFilmOptions(item)) {
+        if (!item.tintedFilmOptions?.pose) {
+          toast.error(`Choisis pose inter ou pose exter pour ${name}`);
+          return false;
+        }
+
+        if (!item.tintedFilmOptions?.ref?.trim()) {
+          toast.error(`Référence film obligatoire pour ${name}`);
+          return false;
+        }
+      }
+
+      if (itemNeedsCutOptions(item)) {
+        const hasColor = item.cutOptions?.color?.trim();
+        const hasRal = item.cutOptions?.ral?.trim();
+
+        if (!hasColor && !hasRal) {
+          toast.error(`Couleur ou RAL obligatoire pour ${name}`);
+          return false;
+        }
+      }
+
+      if (itemNeedsDimensions(item)) {
+        if (item.pricing_type === 'm2' && (!item.width || !item.height)) {
+          toast.error(`Largeur et hauteur obligatoires pour ${name}`);
+          return false;
+        }
+
+        if (item.pricing_type === 'ml' && !item.length && !item.width) {
+          toast.error(`Longueur obligatoire pour ${name}`);
+          return false;
+        }
+
+        if (
+          item.pricing_type === 'm3' &&
+          (!item.width || !item.height || !item.depth)
+        ) {
+          toast.error(
+            `Largeur, hauteur et profondeur obligatoires pour ${name}`,
+          );
+          return false;
+        }
+      }
+
+      if (itemNeedsGoodieOptions(item) || itemHasOtherOnly(item)) {
+        if (!item.option1?.trim() && !item.goodieOptions?.option1?.trim()) {
+          toast.error(`Option 1 obligatoire pour ${name}`);
+          return false;
+        }
+
+        if (!item.option2?.trim() && !item.goodieOptions?.option2?.trim()) {
+          toast.error(`Option 2 obligatoire pour ${name}`);
+          return false;
+        }
+      }
+
+      if (itemNeedsBundleGoodiePlacement(item)) {
+        if (!item.goodieOptions?.placement?.trim()) {
+          toast.error(`Position du marquage obligatoire pour ${name}`);
+          return false;
+        }
+      }
+
+      if (itemNeedsDiffusant(item) && item.diffusant === null) {
+        toast.error(`Choisis si "${name}" est diffusant ou non`);
+        return false;
+      }
+
+      if (itemNeedsBacheFinishing(item) && !item.bacheOptions?.finition) {
+        toast.error(`Choisis une finition pour ${name}`);
+        return false;
+      }
+
+      if (
+        itemNeedsPlastif(item) &&
+        item.plastifEnabled &&
+        !item.plastifProductId
+      ) {
+        toast.error(`Choisis un plastif pour ${name}`);
+        return false;
+      }
+    }
+
+    if (isPose) {
+      if (!poseDate) {
+        toast.error('Choisis une date de pose');
+        return false;
+      }
+
+      if (!poseAdresse.trim()) {
+        toast.error('Renseigne une adresse de pose');
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  async function saveAll() {
+    if (!project.id) return;
+    if (!validateProjectDetails()) return;
+
+    try {
+      await updateProject(project.id, {
+        title,
+        note,
+        isUrgent,
+        limitDate: limitDate
+          ? limitDate.toISOString().split('T')[0]
+          : project.limitDate,
+        metadata: computedMetadata,
+      });
+
+      setProject((prev) => ({
+        ...prev,
+        title,
+        note,
+        isUrgent,
+        limitDate: limitDate
+          ? limitDate.toISOString().split('T')[0]
+          : prev.limitDate,
+        metadata: computedMetadata,
+      }));
+
+      toast.success('Projet enregistré');
+    } catch {
+      toast.error('Erreur pendant l’enregistrement');
+    }
+  }
+
+  function handlePrint() {
+    const content = document.getElementById('pdf-preview');
+    if (!content) return;
 
     const win = window.open('', '_blank');
     if (!win) return;
 
-    // 🔥 copie les styles existants
     const styles = Array.from(document.styleSheets)
       .map((styleSheet: any) => {
         try {
@@ -190,17 +704,14 @@ export default function ProjectContent() {
       .join('');
 
     win.document.write(`
-    <html>
-
-      <head>
-        <title>Print</title>
-        <style>${styles}</style>
-      </head>
-      <body>
-        ${content.innerHTML}
-      </body>
-    </html>
-  `);
+      <html>
+        <head>
+          <title>Print</title>
+          <style>${styles}</style>
+        </head>
+        <body>${content.innerHTML}</body>
+      </html>
+    `);
 
     win.document.close();
 
@@ -210,353 +721,657 @@ export default function ProjectContent() {
         win.close();
       }, 200);
     };
-  };
-
-  const metadata = (project.metadata ?? {}) as ProjectMetadata;
-
-  useEffect(() => {
-    async function fetchProject() {
-      const data = await getProject(Number(id));
-      setProject(data);
-    }
-    fetchProject();
-  }, []);
-
-  useEffect(() => {
-    if (project.note) setNote(project.note);
-    if (project.title) setTitle(project.title);
-    if (metadata.isProd) setIsProd(metadata.isProd);
-    if (metadata.isGraphisme) setIsGraphisme(metadata.isGraphisme);
-    if (metadata.isPose) setIsPose(metadata.isPose);
-    if (metadata.isProducts) setIsProducts(metadata.isProducts);
-    if (metadata.prodNote) setProdNote(metadata.prodNote);
-    if (metadata.graphismeNote) setGraphismeNote(metadata.graphismeNote);
-    if (metadata.poseNote) setPoseNote(metadata.poseNote);
-  }, [project]);
-
-  useEffect(() => {
-    const metadata = (project.metadata ?? {}) as ProjectMetadata;
-    setItems(metadata.items || []);
-  }, [project]);
-
-  useEffect(() => {
-    if (!project) return;
-    async function fetchProducts() {
-      const data = await getProducts();
-      setProducts(data);
-      const Clientdata = await getClient(
-        project.clientId?.toString() as string,
-      );
-      setClient(Clientdata);
-    }
-    fetchProducts();
-  }, [project]);
-
-  const hasAnyPDF = isProd || isGraphisme || isPose;
+  }
 
   return (
     <div className="w-full flex flex-col gap-6">
-      {/* STATUS */}
       <div className="flex items-center justify-between">
-        <div className="w-auto">
-          <Select
-            value={project.status || ''}
-            onValueChange={async (value) => {
-              // update local
-              setProject((prev) => ({
-                ...prev,
-                status: value,
-              }));
+        <Select
+          value={project.status || ''}
+          onValueChange={async (value) => {
+            setProject((prev) => ({
+              ...prev,
+              status: value,
+            }));
 
-              // update DB
-              await updateProject(project.id, {
-                status: value,
-              });
+            await updateProject(project.id, {
+              status: value,
+            });
+          }}
+        >
+          <SelectTrigger className="w-auto px-2">
+            <SelectValue placeholder="Choisir un statut" />
+          </SelectTrigger>
+
+          <SelectContent side="bottom" align="start" position="popper">
+            {Object.entries(PROJECT_STATUS).map(([key, value]) => (
+              <SelectItem key={key} value={key}>
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`w-2 h-2 rounded-full ${
+                      value.color === 'yellow'
+                        ? 'bg-yellow-500'
+                        : value.color === 'emerald'
+                          ? 'bg-emerald-500'
+                          : value.color === 'indigo'
+                            ? 'bg-indigo-500'
+                            : value.color === 'violet'
+                              ? 'bg-violet-500'
+                              : value.color === 'orange'
+                                ? 'bg-orange-500'
+                                : value.color === 'amber'
+                                  ? 'bg-amber-500'
+                                  : 'bg-green-500'
+                    }`}
+                  />
+                  <span>{value.label}</span>
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <div className="flex gap-3">
+          <Button type="button" onClick={() => setPreviewPDF(true)}>
+            <Eye />
+          </Button>
+
+          <Button
+            type="button"
+            onClick={() => {
+              setPreviewPDF(true);
+              setTimeout(() => handlePrint(), 100);
             }}
           >
-            <SelectTrigger className="w-auto px-2">
-              <SelectValue placeholder="Choisir un statut" />
-            </SelectTrigger>
-
-            <SelectContent side="bottom" align="start" position="popper">
-              {Object.entries(PROJECT_STATUS).map(([key, value]) => (
-                <SelectItem key={key} value={key}>
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={`w-2 h-2 rounded-full ${
-                        value.color === 'yellow'
-                          ? 'bg-yellow-500'
-                          : value.color === 'emerald'
-                            ? 'bg-emerald-500'
-                            : value.color === 'indigo'
-                              ? 'bg-indigo-500'
-                              : value.color === 'violet'
-                                ? 'bg-violet-500'
-                                : value.color === 'orange'
-                                  ? 'bg-orange-500'
-                                  : value.color === 'amber'
-                                    ? 'bg-amber-500'
-                                    : 'bg-green-500'
-                      }`}
-                    />
-                    <span>{value.label}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex items-center justify-center gap-4">
-          <Select value={pdfType} onValueChange={(v: any) => setPdfType(v)}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Choisir PDF" />
-            </SelectTrigger>
-
-            <SelectContent>
-              <SelectItem value="prod" disabled={!isProd}>
-                Production
-              </SelectItem>
-
-              <SelectItem value="graphisme" disabled={!isGraphisme}>
-                Graphisme
-              </SelectItem>
-
-              <SelectItem value="pose" disabled={!isPose}>
-                Pose
-              </SelectItem>
-
-              <SelectItem value="all" disabled={!hasAnyPDF}>
-                Actifs
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          {pdfType && (
-            <div className="flex items-center justify-center gap-3">
-              <Button onClick={() => setPreviewPDF(true)}>
-                <Eye />
-              </Button>
-              <Button
-                onClick={() => {
-                  setPreviewPDF(true);
-
-                  setTimeout(() => {
-                    handlePrint();
-                  }, 100);
-                }}
-              >
-                <Printer />
-              </Button>
-            </div>
-          )}
+            <Printer />
+          </Button>
         </div>
       </div>
-      <Card>
-        <CardHeader className="text-center">
-          <Input
-            type="text"
-            value={title}
-            onChange={(e) => {
-              setTitle(e.target.value);
-            }}
-            className="w-auto mx-auto text-center font-semibold text-3xl"
-          />
 
-          <CardDescription>
-            {project.entreprise} | {project.clientFullName}
-          </CardDescription>
+      <Card className="w-full max-w-[80%] md:max-w-[99%] mx-auto">
+        <CardHeader className="text-center flex flex-col gap-8">
+          <div className="flex flex-col gap-2">
+            <CardTitle>Modifier Projet</CardTitle>
+            <CardDescription>
+              {project.entreprise} | {project.clientFullName}
+            </CardDescription>
+          </div>
+
+          <div className="flex flex-row items-center justify-center gap-8">
+            <div className="flex flex-col items-center gap-2">
+              <label className="text-sm font-medium">Fichier Fourni</label>
+              <Switch checked={isFile} onCheckedChange={setIsFile} />
+            </div>
+
+            <div className="flex flex-col items-center gap-2">
+              <label className="text-sm font-medium">BAT Validé</label>
+              <Switch checked={isBAT} onCheckedChange={setIsBAT} />
+            </div>
+          </div>
         </CardHeader>
 
-        {/* NOTE GÉNÉRALE */}
-
         <CardContent>
-          <div className="flex mb-2 flex-col items-center justify-center gap-2 border rounded-md p-2 w-[80%] mx-auto shadow-md">
-            <span className="font-semibold">Note Générale</span>
-
-            <Textarea
-              className="w-full"
-              placeholder="Note Générale"
-              rows={5}
-              value={note}
-              onChange={(e) => {
-                setNote(e.target.value);
-              }}
+          <Field className="mb-6">
+            <FieldLabel>Titre</FieldLabel>
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Enseigne..."
+              autoComplete="off"
             />
-          </div>
-        </CardContent>
+          </Field>
 
-        <CardFooter className="flex flex-col items-center justify-center">
-          <div className="flex items-center justify-center gap-4 mb-2">
-            <div className="flex gap-2 items-center justify-center mb-4">
-              <FieldLabel htmlFor="produit" className="font-semibold text-lg">
-                Fournitures
-              </FieldLabel>
-              <Checkbox
-                id="product"
-                name="product"
-                onCheckedChange={() => {
-                  setIsProducts(!isProducts);
-                }}
-                checked={isProducts}
+          <div className="flex justify-between items-center gap-8 mb-6">
+            <Field>
+              <FieldLabel>Date Limite</FieldLabel>
+              <DatePicker
+                className="bg-transparent cursor-pointer border border-gray-800/10 rounded-md p-1.5 text-sm"
+                selected={limitDate}
+                locale={fr}
+                dateFormat="dd/MM/yyyy"
+                onChange={(date: Date | null) => setLimitDate(date)}
               />
-            </div>
-            <div className="flex gap-2 items-center justify-center mb-4">
-              <FieldLabel htmlFor="graphisme" className="font-semibold text-lg">
-                Visuel
-              </FieldLabel>
-              <Checkbox
-                id="graphisme"
-                name="graphisme"
-                onCheckedChange={() => {
-                  setIsGraphisme(!isGraphisme);
-                }}
-                checked={isGraphisme}
-              />
-            </div>
-            <div className="flex gap-2 items-center justify-center mb-4">
-              <FieldLabel htmlFor="prod" className="font-semibold text-lg">
-                Production
-              </FieldLabel>
-              <Checkbox
-                id="prod"
-                name="prod"
-                onCheckedChange={() => {
-                  setIsProd(!isProd);
-                }}
-                checked={isProd}
-              />
-            </div>
+            </Field>
 
-            <div className="flex gap-2 items-center justify-center mb-4">
-              <FieldLabel htmlFor="graphisme" className="font-semibold text-lg">
-                Pose
-              </FieldLabel>
-              <Checkbox
-                id="pose"
-                name="pose"
-                onCheckedChange={() => {
-                  setIsPose(!isPose);
-                }}
-                checked={isPose}
-              />
-            </div>
+            <Field>
+              <FieldLabel>Priorité</FieldLabel>
+              <Switch checked={isUrgent} onCheckedChange={setIsUrgent} />
+            </Field>
           </div>
-          {isProducts && (
+
+          <div className="flex flex-col gap-6">
             <div className="mb-6 border rounded-md p-4 w-full shadow-sm flex flex-col gap-6">
               <h3 className="font-semibold text-center">
                 Fournitures du projet
               </h3>
+
               <Separator />
 
-              {/* HEADER */}
-              <div className="grid grid-cols-6 gap-2 text-xs font-semibold text-muted-foreground">
+              <div className="grid grid-cols-[minmax(300px,1fr)_50px_120px_120px_100px_60px] gap-4 text-xs font-semibold text-muted-foreground items-center">
                 <div>Produit</div>
                 <div>Qté</div>
-                <div>Largeur (mm)</div>
-                <div>Hauteur (mm)</div>
+                <div>Option 1 / Largeur</div>
+                <div>Option 2 / Hauteur</div>
                 <div>Total</div>
-                <div>Supprimer</div>
+                <div></div>
               </div>
 
-              {/* LIGNES */}
-              {items.map((item, index) => (
-                <div
-                  key={index}
-                  className="grid grid-cols-6 gap-4 items-center"
-                >
+              {items.map((item, index) => {
+                const needsDimensions =
+                  itemNeedsDimensions(item) ||
+                  item.pricing_type === 'm2' ||
+                  item.pricing_type === 'ml' ||
+                  item.pricing_type === 'm3';
+
+                const needsGoodieOptions = itemNeedsGoodieOptions(item);
+                const needsBundleGoodiePlacement =
+                  itemNeedsBundleGoodiePlacement(item);
+                const needsDiffusant = itemNeedsDiffusant(item);
+                const needsBacheFinishing = itemNeedsBacheFinishing(item);
+                const needsPlastif = itemNeedsPlastif(item);
+                const needsOtherOptions =
+                  !needsDimensions && !needsGoodieOptions;
+
+                return (
+                  <div key={index} className="flex flex-col gap-6">
+                    <div className="grid grid-cols-[minmax(300px,1fr)_50px_120px_120px_100px_60px] gap-4 items-center">
+                      <Button
+                        className="w-full h-auto min-h-10 justify-start whitespace-normal text-left"
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          if (item.isCustom) return;
+                          setSelectedIndex(index);
+                          setOpenModal(true);
+                        }}
+                      >
+                        <span className="block w-full break-words">
+                          {item.isCustom
+                            ? item.customName || 'Autre produit'
+                            : item.productName || 'Choisir produit'}
+                        </span>
+                      </Button>
+
+                      <input
+                        className="w-12 h-10 text-center rounded-md border px-1"
+                        type="number"
+                        value={item.quantity}
+                        onChange={(e) => {
+                          const copy = [...items];
+                          copy[index].quantity = Number(e.target.value);
+                          updateItems(copy);
+                        }}
+                      />
+
+                      {needsDimensions ? (
+                        <>
+                          <Input
+                            type="number"
+                            placeholder="Largeur"
+                            value={item.width}
+                            onChange={(e) => {
+                              const copy = [...items];
+                              copy[index].width = Number(e.target.value);
+                              updateItems(copy);
+                            }}
+                          />
+
+                          <Input
+                            type="number"
+                            placeholder="Hauteur"
+                            value={item.height}
+                            onChange={(e) => {
+                              const copy = [...items];
+                              copy[index].height = Number(e.target.value);
+                              updateItems(copy);
+                            }}
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <Input
+                            placeholder={
+                              needsGoodieOptions
+                                ? 'Couleur / finition'
+                                : 'Option 1'
+                            }
+                            value={
+                              needsGoodieOptions
+                                ? (item.goodieOptions?.option1 ?? '')
+                                : (item.option1 ?? '')
+                            }
+                            onChange={(e) => {
+                              const copy = [...items];
+
+                              if (needsGoodieOptions) {
+                                copy[index].goodieOptions = {
+                                  ...copy[index].goodieOptions,
+                                  option1: e.target.value,
+                                };
+                              } else {
+                                copy[index].option1 = e.target.value;
+                              }
+
+                              updateItems(copy);
+                            }}
+                          />
+
+                          <Input
+                            placeholder={
+                              needsGoodieOptions ? 'Taille / autre' : 'Option 2'
+                            }
+                            value={
+                              needsGoodieOptions
+                                ? (item.goodieOptions?.option2 ?? '')
+                                : (item.option2 ?? '')
+                            }
+                            onChange={(e) => {
+                              const copy = [...items];
+
+                              if (needsGoodieOptions) {
+                                copy[index].goodieOptions = {
+                                  ...copy[index].goodieOptions,
+                                  option2: e.target.value,
+                                };
+                              } else {
+                                copy[index].option2 = e.target.value;
+                              }
+
+                              updateItems(copy);
+                            }}
+                          />
+                        </>
+                      )}
+
+                      <div className="font-semibold h-10 flex items-center whitespace-nowrap">
+                        {getItemTotal(item).toFixed(2)} €
+                      </div>
+
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => {
+                          const copy = items.filter((_, i) => i !== index);
+                          updateItems(copy);
+                        }}
+                      >
+                        <Trash />
+                      </Button>
+                    </div>
+
+                    {itemNeedsTintedFilmOptions(item) && (
+                      <div className="border rounded-md p-3 bg-muted/20 flex flex-col gap-3">
+                        <div className="text-sm font-medium">
+                          Options film teinté
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            variant={
+                              item.tintedFilmOptions?.pose === 'inter'
+                                ? 'default'
+                                : 'outline'
+                            }
+                            onClick={() => {
+                              const copy = [...items];
+
+                              copy[index].tintedFilmOptions = {
+                                ...copy[index].tintedFilmOptions,
+                                pose: 'inter',
+                              };
+
+                              updateItems(copy);
+                            }}
+                          >
+                            Pose Intérieur
+                          </Button>
+
+                          <Button
+                            type="button"
+                            variant={
+                              item.tintedFilmOptions?.pose === 'exter'
+                                ? 'default'
+                                : 'outline'
+                            }
+                            onClick={() => {
+                              const copy = [...items];
+
+                              copy[index].tintedFilmOptions = {
+                                ...copy[index].tintedFilmOptions,
+                                pose: 'exter',
+                              };
+
+                              updateItems(copy);
+                            }}
+                          >
+                            Pose Extérieur
+                          </Button>
+                        </div>
+
+                        <Input
+                          placeholder="Référence film"
+                          value={item.tintedFilmOptions?.ref ?? ''}
+                          onChange={(e) => {
+                            const copy = [...items];
+
+                            copy[index].tintedFilmOptions = {
+                              ...copy[index].tintedFilmOptions,
+                              ref: e.target.value,
+                            };
+
+                            updateItems(copy);
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    {needsBundleGoodiePlacement && (
+                      <div className="border rounded-md p-3 bg-muted/20 flex flex-col gap-3">
+                        <div className="text-sm font-medium">
+                          Options goodie
+                        </div>
+
+                        <Input
+                          placeholder="Positionnement du marquage"
+                          value={item.goodieOptions?.placement ?? ''}
+                          onChange={(e) => {
+                            const copy = [...items];
+
+                            copy[index].goodieOptions = {
+                              ...copy[index].goodieOptions,
+                              placement: e.target.value,
+                            };
+
+                            updateItems(copy);
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    {needsDiffusant && (
+                      <div className="border rounded-md p-3 bg-muted/20 flex flex-col gap-3">
+                        <div className="text-sm font-medium">
+                          Diffusant obligatoire
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            variant={
+                              item.diffusant === true ? 'default' : 'outline'
+                            }
+                            onClick={() => setDiffusant(index, true)}
+                          >
+                            Oui
+                          </Button>
+
+                          <Button
+                            type="button"
+                            variant={
+                              item.diffusant === false ? 'default' : 'outline'
+                            }
+                            onClick={() => setDiffusant(index, false)}
+                          >
+                            Non
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {needsBacheFinishing && (
+                      <div className="border rounded-md p-3 bg-muted/20 flex flex-col gap-3">
+                        <div className="text-sm font-medium">
+                          Finition obligatoire
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            variant={
+                              item.bacheOptions?.finition === 'brut'
+                                ? 'default'
+                                : 'outline'
+                            }
+                            onClick={() => setBacheFinition(index, 'brut')}
+                          >
+                            Brut
+                          </Button>
+
+                          <Button
+                            type="button"
+                            variant={
+                              item.bacheOptions?.finition === 'oeillets_500'
+                                ? 'default'
+                                : 'outline'
+                            }
+                            onClick={() =>
+                              setBacheFinition(index, 'oeillets_500')
+                            }
+                          >
+                            Œillets 500mm
+                          </Button>
+
+                          <Button
+                            type="button"
+                            variant={
+                              item.bacheOptions?.finition === 'oeillets_1000'
+                                ? 'default'
+                                : 'outline'
+                            }
+                            onClick={() =>
+                              setBacheFinition(index, 'oeillets_1000')
+                            }
+                          >
+                            Œillets 1000mm
+                          </Button>
+
+                          <Button
+                            type="button"
+                            variant={
+                              item.bacheOptions?.finition === 'oeillets_coins'
+                                ? 'default'
+                                : 'outline'
+                            }
+                            onClick={() =>
+                              setBacheFinition(index, 'oeillets_coins')
+                            }
+                          >
+                            Œillets coins
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {itemNeedsCutOptions(item) && (
+                      <div className="grid grid-cols-2 gap-4 border rounded-md p-3 bg-muted/20">
+                        <Input
+                          placeholder="Couleur"
+                          value={item.cutOptions?.color ?? ''}
+                          onChange={(e) => {
+                            const copy = [...items];
+
+                            copy[index].cutOptions = {
+                              ...copy[index].cutOptions,
+                              color: e.target.value,
+                            };
+
+                            updateItems(copy);
+                          }}
+                        />
+
+                        <Input
+                          placeholder="RAL"
+                          value={item.cutOptions?.ral ?? ''}
+                          onChange={(e) => {
+                            const copy = [...items];
+
+                            copy[index].cutOptions = {
+                              ...copy[index].cutOptions,
+                              ral: e.target.value,
+                            };
+
+                            updateItems(copy);
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    {needsPlastif && (
+                      <div className="border rounded-md p-3 bg-muted/20 flex flex-col gap-3">
+                        <div className="flex items-center gap-3">
+                          <FieldLabel>Plastif ?</FieldLabel>
+
+                          <Switch
+                            checked={item.plastifEnabled ?? false}
+                            onCheckedChange={(checked) => {
+                              const copy = [...items];
+
+                              copy[index].plastifEnabled = checked;
+
+                              if (!checked) {
+                                copy[index].plastifProductId = undefined;
+                                copy[index].plastifProductName = undefined;
+                              }
+
+                              updateItems(copy);
+                            }}
+                          />
+                        </div>
+
+                        {item.plastifEnabled && (
+                          <Select
+                            value={
+                              item.plastifProductId
+                                ? String(item.plastifProductId)
+                                : ''
+                            }
+                            onValueChange={(value) => {
+                              const plastif = plastifProducts.find(
+                                (product) => String(product.id) === value,
+                              );
+
+                              const copy = [...items];
+
+                              copy[index].plastifProductId = Number(value);
+                              copy[index].plastifProductName =
+                                plastif?.title as string;
+
+                              updateItems(copy);
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Choisir un plastif" />
+                            </SelectTrigger>
+
+                            <SelectContent>
+                              {plastifProducts.map((product) => (
+                                <SelectItem
+                                  key={product.id}
+                                  value={String(product.id)}
+                                >
+                                  {product.title}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+                    )}
+
+                    {item.isCustom && (
+                      <div className="grid grid-cols-2 gap-4 border rounded-md p-3">
+                        <Input
+                          placeholder="Nom du produit"
+                          value={item.customName ?? ''}
+                          onChange={(e) => {
+                            const copy = [...items];
+                            copy[index].customName = e.target.value;
+                            updateItems(copy);
+                          }}
+                        />
+
+                        <Input
+                          type="number"
+                          placeholder="Prix"
+                          value={item.customPrice ?? 0}
+                          onChange={(e) => {
+                            const copy = [...items];
+                            copy[index].customPrice = Number(e.target.value);
+                            updateItems(copy);
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    <Separator className="mt-2" />
+                  </div>
+                );
+              })}
+
+              <div className="flex items-center justify-between">
+                <div className="flex gap-2">
                   <Button
-                    className="truncate max-w-[150px]"
+                    type="button"
+                    onClick={() =>
+                      updateItems([
+                        ...items,
+                        {
+                          productId: 0,
+                          productName: '',
+                          productType: '',
+                          type: '',
+                          components: [],
+                          quantity: 1,
+                          width: 0,
+                          height: 0,
+                          unitPrice: 0,
+                          pricing_type: 'unit',
+                          unit_multiplier: 1,
+                          diffusant: null,
+                          goodieOptions: undefined,
+                          bacheOptions: undefined,
+                        },
+                      ])
+                    }
+                  >
+                    + Ajouter un produit
+                  </Button>
+
+                  <Button
                     type="button"
                     variant="outline"
-                    onClick={() => {
-                      setSelectedIndex(index);
-                      setOpenModal(true);
-                    }}
-                  >
-                    <span className="truncate w-full text-left">
-                      {item.productName || 'Choisir produit'}
-                    </span>
-                  </Button>
-
-                  <input
-                    type="number"
-                    value={item.quantity}
-                    onChange={(e) => {
-                      const copy = [...items];
-                      copy[index].quantity = Number(e.target.value);
-                      updateItems(copy);
-                    }}
-                  />
-
-                  <input
-                    type="number"
-                    placeholder={
-                      item.pricing_type === 'ml' ? 'Longueur (mm)' : 'Largeur'
+                    onClick={() =>
+                      updateItems([
+                        ...items,
+                        {
+                          productId: 0,
+                          productName: 'Autre',
+                          productType: 'other',
+                          type: 'other',
+                          components: [],
+                          isCustom: true,
+                          customName: '',
+                          customPrice: 0,
+                          quantity: 1,
+                          width: 0,
+                          height: 0,
+                          unitPrice: 0,
+                          pricing_type: 'unit',
+                          unit_multiplier: 1,
+                          option1: '',
+                          option2: '',
+                          diffusant: null,
+                          goodieOptions: undefined,
+                          bacheOptions: undefined,
+                        },
+                      ])
                     }
-                    value={item.width}
-                    onChange={(e) => {
-                      const copy = [...items];
-                      copy[index].width = Number(e.target.value);
-
-                      // 🔥 ML → on copie dans length
-                      if (item.pricing_type === 'ml') {
-                        copy[index].length = Number(e.target.value);
-                      }
-
-                      updateItems(copy);
-                    }}
-                  />
-
-                  <input
-                    type="number"
-                    placeholder={item.pricing_type === 'ml' ? '—' : 'Hauteur'}
-                    value={item.pricing_type === 'ml' ? '' : item.height}
-                    disabled={item.pricing_type === 'ml'}
-                    onChange={(e) => {
-                      const copy = [...items];
-                      copy[index].height = Number(e.target.value);
-                      updateItems(copy);
-                    }}
-                  />
-
-                  <div className="font-semibold">
-                    {getItemTotal(item).toFixed(2)} €
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => {
-                      const copy = items.filter((_, i) => i !== index);
-                      updateItems(copy);
-                    }}
                   >
-                    <Trash />
+                    + Autre
                   </Button>
                 </div>
-              ))}
 
-              <div className=" flex items-center justify-between">
-                {/* ADD */}
-                <Button
-                  onClick={() =>
-                    updateItems([
-                      ...items,
-                      {
-                        productId: 0,
-                        productName: '',
-                        quantity: 1,
-                        width: 0,
-                        height: 0,
-                        unitPrice: 0,
-
-                        pricing_type: 'unit',
-                        unit_multiplier: 1,
-                      },
-                    ])
-                  }
-                >
-                  + Ajouter un produit
-                </Button>
-                {/* TOTAL */}
                 <div className="text-right font-semibold">
                   Total :{' '}
                   {items
@@ -566,84 +1381,256 @@ export default function ProjectContent() {
                 </div>
               </div>
             </div>
-          )}
 
-          {isGraphisme && (
-            <div className="mb-6 border rounded-md p-4 w-full shadow-sm flex flex-col gap-6">
-              <h3 className="font-semibold text-center">Visuel à réaliser</h3>
-              <Separator />
-
+            <Field>
+              <FieldLabel>Descriptif</FieldLabel>
               <Textarea
-                value={graphismeNote}
-                onChange={(e) => setGraphismeNote(e.target.value)}
-                rows={5}
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="A faire..."
+                rows={4}
               />
-            </div>
-          )}
+            </Field>
 
-          {isProd && (
-            <div className="mb-6 border rounded-md p-4 w-full shadow-sm flex flex-col gap-6">
-              <h3 className="font-semibold text-center">
-                Productions à réaliser
-              </h3>
+            <div className="border rounded-md p-4 w-full shadow-sm flex flex-col gap-6">
+              <h3 className="font-semibold text-center">Pose</h3>
+
               <Separator />
 
-              {/* HEADER */}
-              <div className="text-center">
-                <div className="grid grid-cols-4 gap-2 text-xs font-semibold text-muted-foreground mb-4">
-                  <div>Produit</div>
-                  <div>Qté</div>
-                  <div>Largeur (mm)</div>
-                  <div>Hauteur (mm)</div>
+              <div className="flex items-center justify-center gap-8">
+                <div className="flex items-center gap-2">
+                  <FieldLabel>Pose</FieldLabel>
+                  <Switch checked={isPose} onCheckedChange={setIsPose} />
                 </div>
 
-                {/* LIGNES */}
-                {items.map((item, index) => (
-                  <div
-                    key={index}
-                    className="grid grid-cols-4 gap-4 items-center text-center"
-                  >
-                    <div className="">{item.productName}</div>
-                    <div>{item.quantity}</div>
-                    <div className="">{item.width}</div>
-                    <div className="">{item.height}</div>
-                  </div>
-                ))}
-                <Card className="w-[80%] md:w-auto max-h-[80vh] flex flex-col mt-4">
-                  <CardHeader>
-                    <CardTitle>Notes de production</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Textarea
-                      value={prodNote}
-                      onChange={(e) => setProdNote(e.target.value)}
-                      rows={5}
-                    />
-                  </CardContent>
-                </Card>
+                {isPose && (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <FieldLabel>Date</FieldLabel>
+                      <DatePicker
+                        className="bg-transparent cursor-pointer border border-gray-800/10 rounded-md p-1.5 text-sm"
+                        selected={poseDate}
+                        locale={fr}
+                        dateFormat="dd/MM/yyyy"
+                        onChange={(date: Date | null) => setPoseDate(date)}
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <FieldLabel>Nacelle</FieldLabel>
+                      <Switch
+                        checked={isNacelle}
+                        onCheckedChange={setIsNacelle}
+                      />
+                    </div>
+                  </>
+                )}
               </div>
-            </div>
-          )}
 
-          {isPose && (
-            <div className="mb-6 border rounded-md p-4 w-full shadow-sm flex flex-col gap-6">
-              <h3 className="font-semibold text-center">Pose à réaliser</h3>
-              <Separator />
-
-              <Textarea
-                value={poseNote}
-                onChange={(e) => setPoseNote(e.target.value)}
-                rows={5}
-              />
+              {isPose && (
+                <Field>
+                  <FieldLabel>Adresse de pose</FieldLabel>
+                  <Input
+                    value={poseAdresse}
+                    onChange={(e) => setPoseAdresse(e.target.value)}
+                    placeholder="Adresse..."
+                  />
+                </Field>
+              )}
             </div>
-          )}
-          <div className="flex items-center justify-center w-full">
-            <Button onClick={saveAll} className="w-[50%] ">
+          </div>
+        </CardContent>
+
+        <CardFooter>
+          <Field
+            orientation="horizontal"
+            className="flex items-center justify-between w-full px-2"
+          >
+            <Button type="button" variant="outline">
+              Annuler
+            </Button>
+
+            <Button type="button" onClick={saveAll}>
               Enregistrer
             </Button>
-          </div>
+          </Field>
         </CardFooter>
+
+        {openModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center w-full z-50">
+            <Card className="w-[90%] md:w-[40%] max-h-[70vh] flex flex-col">
+              <CardHeader>
+                <CardTitle>Choisir un produit</CardTitle>
+                <CardDescription>
+                  Rechercher et sélectionner un produit
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent className="overflow-auto">
+                <SearchBar
+                  data={products}
+                  fields={['title', 'ref', 'supplierName']}
+                >
+                  {(filtered) => (
+                    <div className="flex flex-col gap-2 mt-2">
+                      <div className="grid grid-cols-2 text-xs font-semibold text-muted-foreground px-2">
+                        <div>Produit</div>
+                        <div className="text-right">Prix</div>
+                      </div>
+
+                      {filtered.map((product) => {
+                        const productType = normalizeType(
+                          (product as any).type,
+                        );
+                        const productComponents = normalizeComponents(
+                          (product as any).components,
+                        );
+
+                        const productHasSupport = productHasType(
+                          product,
+                          'support',
+                        );
+                        const productHasMedia = productHasType(
+                          product,
+                          'media',
+                        );
+                        const productHasGoodie = productHasType(
+                          product,
+                          'goodie',
+                        );
+
+                        const needsDimensions =
+                          productType === 'bundle' &&
+                          productHasGoodie &&
+                          !productHasSupport
+                            ? false
+                            : productHasSupport ||
+                              productHasMedia ||
+                              product.pricing_type === 'm2' ||
+                              product.pricing_type === 'ml' ||
+                              product.pricing_type === 'm3';
+
+                        const needsBache = productNeedsBacheFinishing(product);
+                        const needsPlastif = productNeedsPlastif(product);
+                        const needsDiffusant =
+                          productType === 'bundle' && productHasSupport;
+
+                        return (
+                          <div
+                            key={product.id}
+                            className="grid grid-cols-2 min-h-16 items-center border p-2 rounded cursor-pointer hover:bg-muted"
+                            onClick={() => {
+                              if (selectedIndex === null) return;
+
+                              const copy = [...items];
+
+                              copy[selectedIndex] = {
+                                ...copy[selectedIndex],
+
+                                productId: product.id,
+                                productName: product.title as string,
+
+                                productType,
+                                type: productType,
+
+                                components: productComponents,
+
+                                isCustom: false,
+                                customName: '',
+                                customPrice: 0,
+
+                                unitPrice: Number(product.price),
+
+                                pricing_type:
+                                  ((product as any)
+                                    .pricing_type as PricingType) ?? 'unit',
+
+                                unit_multiplier:
+                                  ((product as any)
+                                    .unit_multiplier as number) ?? 1,
+
+                                width: 0,
+                                height: 0,
+                                length: 0,
+                                depth: 0,
+
+                                option1:
+                                  !needsDimensions && !productHasGoodie
+                                    ? ''
+                                    : undefined,
+                                option2:
+                                  !needsDimensions && !productHasGoodie
+                                    ? ''
+                                    : undefined,
+
+                                diffusant: needsDiffusant ? null : undefined,
+
+                                plastifEnabled: needsPlastif
+                                  ? false
+                                  : undefined,
+                                plastifProductId: undefined,
+                                plastifProductName: undefined,
+
+                                goodieOptions: productHasGoodie
+                                  ? {
+                                      option1: '',
+                                      option2: '',
+                                      placement:
+                                        productType === 'bundle'
+                                          ? ''
+                                          : undefined,
+                                    }
+                                  : undefined,
+
+                                bacheOptions: needsBache
+                                  ? {
+                                      finition: undefined,
+                                    }
+                                  : undefined,
+                              };
+
+                              updateItems(copy);
+                              setOpenModal(false);
+                            }}
+                          >
+                            <div>
+                              <div className="font-medium">{product.title}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {productType}
+                                {productHasSupport ? ' • support' : ''}
+                                {productHasMedia ? ' • media' : ''}
+                                {productHasGoodie ? ' • goodie' : ''}
+                                {needsBache ? ' • finition' : ''}
+                                {needsPlastif ? ' • plastif' : ''}
+                              </div>
+                            </div>
+
+                            <div className="text-sm font-semibold text-right">
+                              {product.price} €
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </SearchBar>
+              </CardContent>
+
+              <CardFooter>
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  type="button"
+                  onClick={() => setOpenModal(false)}
+                >
+                  Fermer
+                </Button>
+              </CardFooter>
+            </Card>
+          </div>
+        )}
       </Card>
+
       {previewPDF && (
         <div
           className="fixed inset-0 bg-black/80 z-50 flex justify-center items-start overflow-auto p-10"
@@ -655,96 +1642,24 @@ export default function ProjectContent() {
           >
             <div
               id="pdf-preview"
-              className="bg-zinc-300 min-h-screen flex flex-col items-center gap-10 p-10"
+              className="bg-white w-[210mm] min-h-[297mm] p-[10mm]"
             >
               <ProjectPDF
                 client={client}
                 metadata={computedMetadata}
-                project={project}
-                type={pdfType || 'all'}
+                project={{
+                  ...project,
+                  title,
+                  note,
+                  isUrgent,
+                  limitDate: limitDate
+                    ? limitDate.toISOString().split('T')[0]
+                    : project.limitDate,
+                }}
+                type="all"
               />
             </div>
           </div>
-        </div>
-      )}
-
-      {openModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-[80%] md:w-auto max-h-[80vh] flex flex-col ">
-            <CardHeader>
-              <CardTitle>Choisir un produit</CardTitle>
-              <CardDescription>
-                Rechercher et sélectionner un produit
-              </CardDescription>
-            </CardHeader>
-
-            <CardContent className="overflow-auto">
-              <SearchBar
-                data={products}
-                fields={['title', 'ref', 'supplierName']}
-              >
-                {(filtered) => (
-                  <div className="flex flex-col gap-2 mt-2">
-                    {/* HEADER */}
-                    <div className="grid grid-cols-3 text-xs font-semibold text-muted-foreground px-2">
-                      <div>Produit</div>
-                      <div>Réf / Fournisseur</div>
-                      <div className="text-right">Prix</div>
-                    </div>
-
-                    {/* LISTE */}
-                    {filtered.map((product) => (
-                      <div
-                        key={product.id}
-                        className="grid grid-cols-3 h-16 items-center border p-2 rounded cursor-pointer hover:bg-muted"
-                        onClick={() => {
-                          if (selectedIndex === null) return;
-
-                          const copy = [...items];
-
-                          copy[selectedIndex] = {
-                            ...copy[selectedIndex],
-                            productId: product.id,
-                            productName: product.title,
-                            unitPrice: Number(product.price),
-
-                            pricing_type: product.pricing_type || 'unit',
-                            unit_multiplier: product.unit_multiplier ?? 1,
-                          };
-
-                          updateItems(copy);
-                          setOpenModal(false);
-                        }}
-                      >
-                        {/* NOM */}
-                        <div className="font-medium">{product.title}</div>
-
-                        {/* REF + FOURNISSEUR */}
-                        <div className="text-xs text-muted-foreground">
-                          {product.ref} • {product.supplierName}
-                        </div>
-
-                        {/* PRIX */}
-                        <div className="text-sm font-semibold text-right">
-                          {product.price} €
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </SearchBar>
-            </CardContent>
-
-            <CardFooter>
-              <Button
-                className="w-full"
-                variant="outline"
-                onClick={() => setOpenModal(false)}
-              >
-                Fermer
-              </Button>
-            </CardFooter>
-          </Card>
         </div>
       )}
     </div>

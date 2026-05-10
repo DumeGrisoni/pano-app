@@ -47,13 +47,19 @@ export function DataTable<TData, TValue>({
   const filteredData = useMemo(() => {
     const searchLower = deferredSearch.toLowerCase();
 
-    return data.filter((row: any) =>
-      `${row.title ?? ''} ${row.ref ?? ''} ${row.supplierName ?? ''}`
-        .toLowerCase()
-        .includes(searchLower),
-    );
-  }, [data, deferredSearch]);
+    return data
+      .filter((row: any) =>
+        `${row.title ?? ''} ${row.ref ?? ''} ${row.supplierName ?? ''}`
+          .toLowerCase()
+          .includes(searchLower),
+      )
+      .sort((a: any, b: any) => {
+        const titleA = (a.title || '').toLowerCase();
+        const titleB = (b.title || '').toLowerCase();
 
+        return titleA.localeCompare(titleB, 'fr');
+      });
+  }, [data, deferredSearch]);
   // 🔥 table
   const table = useReactTable({
     data: filteredData,

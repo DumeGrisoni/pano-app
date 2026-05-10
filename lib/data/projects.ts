@@ -56,8 +56,14 @@ export async function createNewProject(
   data: Database['public']['Tables']['Projects']['Insert'],
 ) {
   const supabase = await createClient();
-  const { error } = await supabase.from('Projects').insert(data);
+  const { data: newProject, error } = await supabase
+    .from('Projects')
+    .insert(data)
+    .select()
+    .single();
   if (error) throw error;
+
+  return newProject;
 }
 
 export async function getProjectsByClientId(clientId: number) {

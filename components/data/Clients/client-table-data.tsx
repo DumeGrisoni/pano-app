@@ -47,9 +47,28 @@ export function DataTable<TData, TValue>({
   const filteredData = useMemo(() => {
     const searchLower = deferredSearch.toLowerCase();
 
-    return data.filter((row: any) =>
-      `${row.title ?? ''} ${row.ref ?? ''}`.toLowerCase().includes(searchLower),
-    );
+    return data
+      .filter((row: any) =>
+        `${row.name ?? ''} ${row.surname ?? ''} ${row.entreprise ?? ''}`
+          .toLowerCase()
+          .includes(searchLower),
+      )
+      .sort((a: any, b: any) => {
+        const entrepriseA = (a.entreprise || '').toLowerCase();
+        const entrepriseB = (b.entreprise || '').toLowerCase();
+
+        // priorité entreprise
+        if (entrepriseA && entrepriseB) {
+          return entrepriseA.localeCompare(entrepriseB, 'fr');
+        }
+
+        // fallback nom prénom
+        const fullNameA = `${a.name || ''} ${a.surname || ''}`.toLowerCase();
+
+        const fullNameB = `${b.name || ''} ${b.surname || ''}`.toLowerCase();
+
+        return fullNameA.localeCompare(fullNameB, 'fr');
+      });
   }, [data, deferredSearch]);
 
   // 🔥 table

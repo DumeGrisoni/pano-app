@@ -48,7 +48,9 @@ export function DataTable<TData, TValue>({
     const searchLower = deferredSearch.toLowerCase();
 
     return data.filter((row: any) =>
-      `${row.title ?? ''} ${row.ref ?? ''}`.toLowerCase().includes(searchLower),
+      `${row.name ?? ''} ${row.surname ?? ''}`
+        .toLowerCase()
+        .includes(searchLower),
     );
   }, [data, deferredSearch]);
 

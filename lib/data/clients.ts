@@ -39,6 +39,12 @@ export async function createNewClient(
   data: Database['public']['Tables']['Clients']['Insert'],
 ) {
   const supabase = await createClient();
-  const { error } = await supabase.from('Clients').insert(data);
+  const { data: newClient, error } = await supabase
+    .from('Clients')
+    .insert(data)
+    .select()
+    .single();
   if (error) throw error;
+
+  return newClient;
 }

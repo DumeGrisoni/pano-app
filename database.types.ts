@@ -48,8 +48,9 @@ export type Database = {
           id: number
           mail: string | null
           name: string | null
-          phone: number | null
+          phone: string | null
           postalCode: number | null
+          siret: string | null
           surname: string | null
         }
         Insert: {
@@ -60,8 +61,9 @@ export type Database = {
           id?: number
           mail?: string | null
           name?: string | null
-          phone?: number | null
+          phone?: string | null
           postalCode?: number | null
+          siret?: string | null
           surname?: string | null
         }
         Update: {
@@ -72,8 +74,9 @@ export type Database = {
           id?: number
           mail?: string | null
           name?: string | null
-          phone?: number | null
+          phone?: string | null
           postalCode?: number | null
+          siret?: string | null
           surname?: string | null
         }
         Relationships: []
@@ -163,6 +166,8 @@ export type Database = {
       }
       Products: {
         Row: {
+          color: string | null
+          components: Json | null
           created_at: string
           id: number
           price: number
@@ -170,10 +175,14 @@ export type Database = {
           ref: string
           supplier: number | null
           supplierName: string | null
+          thickness: string | null
           title: string | null
+          type: string | null
           unit_multiplier: number | null
         }
         Insert: {
+          color?: string | null
+          components?: Json | null
           created_at?: string
           id?: number
           price: number
@@ -181,10 +190,14 @@ export type Database = {
           ref: string
           supplier?: number | null
           supplierName?: string | null
+          thickness?: string | null
           title?: string | null
+          type?: string | null
           unit_multiplier?: number | null
         }
         Update: {
+          color?: string | null
+          components?: Json | null
           created_at?: string
           id?: number
           price?: number
@@ -192,7 +205,9 @@ export type Database = {
           ref?: string
           supplier?: number | null
           supplierName?: string | null
+          thickness?: string | null
           title?: string | null
+          type?: string | null
           unit_multiplier?: number | null
         }
         Relationships: [

@@ -3,14 +3,59 @@
 @tailwind utilities;
 
 @media print {
-  .page-break {
-    page-break-before: always;
+  .pdf-document {
+    width: 210mm;
+    margin: 0 auto;
+  }
+
+  .pdf-page {
+    width: 210mm;
+    min-height: 297mm;
+    padding: 12mm;
+    box-sizing: border-box;
+    page-break-after: auto;
+  }
+
+  .pdf-avoid-break {
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 }
 
 @page {
   size: A4;
   margin: 20mm;
+}
+
+@page {
+  size: A4;
+  margin: 0;
+}
+
+@media print {
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  #pdf-preview {
+    width: 210mm !important;
+    min-height: 297mm !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: white !important;
+  }
+
+  .pdf-page,
+  .page-pdf {
+    width: 210mm !important;
+    min-height: 297mm !important;
+    margin: 0 !important;
+    padding: 10mm !important;
+    box-sizing: border-box !important;
+    background: white !important;
+  }
 }
 
 @layer base {

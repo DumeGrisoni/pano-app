@@ -12,16 +12,18 @@ export async function getProducts() {
   return (data as Database['public']['Tables']['Products']['Row'][]) ?? [];
 }
 
-export async function createProduct(data: {
-  title: string;
-  price: number;
-  supplier: number;
-  ref: string;
-  supplierName: string;
-  pricing_type: string;
-  unit_multiplier: number;
-}) {
+export async function createProduct(
+  data: Database['public']['Tables']['Products']['Insert'],
+) {
   const supabase = await createClient();
-  const { error } = await supabase.from('Products').insert(data);
+
+  const { data: newProduct, error } = await supabase
+    .from('Products')
+    .insert(data)
+    .select()
+    .single();
+
   if (error) throw error;
+
+  return newProduct;
 }

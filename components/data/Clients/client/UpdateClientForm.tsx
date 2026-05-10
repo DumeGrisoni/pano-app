@@ -27,14 +27,10 @@ import { updateClient } from '@/lib/data/clients';
 import { Database } from '@/database.types';
 
 const formSchema = z.object({
-  name: z
-    .string()
-    .min(1, 'Le nom doit avoir au moins 1 caractères.')
-    .max(32, 'Le nom doit avoir au plus 32 caractères.'),
-  surname: z
-    .string()
-    .min(1, 'Le prénom doit avoir au moins 1 caractères.')
-    .max(32, 'Le prénom doit avoir au plus 32 caractères.'),
+  name: z.string(),
+
+  surname: z.string(),
+
   entreprise: z.string(),
   postalCode: z.preprocess(
     (val) => {
@@ -52,46 +48,25 @@ const formSchema = z.object({
 
       return val;
     },
-    z
-      .number({
-        message: 'Le CodePostal doit être un nombre valide',
-      })
-      .gt(0, 'Le CodePostal doit être supérieur à 0'),
+    z.number({
+      message: 'Le Code Postal doit être un nombre valide',
+    }),
   ),
-  address: z
+  address: z.string(),
+  phone: z
     .string()
-    .min(1, 'L adresse doit avoir au moins 1 caractères.')
-    .max(255, 'L adresse doit avoir au plus 255 caractères.'),
-  phone: z.preprocess(
-    (val) => {
-      if (typeof val === 'string') {
-        // Remplace virgule par point + trim
-        const normalized = val.replace(',', '.').trim();
+    .trim()
+    .regex(/^\d+$/, 'Le téléphone ne doit contenir que des chiffres')
+    .regex(
+      /^0\d{9}$/,
+      'Le téléphone doit contenir 10 chiffres et commencer par 0',
+    )
+    .or(z.literal('')),
+  mail: z.string(),
 
-        const parsed = Number(normalized);
+  city: z.string(),
 
-        // Si NaN → invalide
-        if (isNaN(parsed)) return undefined;
-
-        return parsed;
-      }
-
-      return val;
-    },
-    z
-      .number({
-        message: 'Le téléphone doit être un nombre valide',
-      })
-      .gt(0, 'Le Téléphone doit être supérieur à 0'),
-  ),
-  mail: z
-    .string()
-    .min(1, 'Le mail doit avoir au moins 1 caractères.')
-    .max(45, 'Le mail doit avoir au plus 45 caractères.'),
-  city: z
-    .string()
-    .min(1, 'La ville doit avoir au moins 1 caractères.')
-    .max(45, 'La ville doit avoir au plus 45 caractères.'),
+  siret: z.string(),
 });
 
 export function UpdateClientForm({
@@ -107,9 +82,10 @@ export function UpdateClientForm({
       entreprise: client.entreprise || '',
       postalCode: client.postalCode || 0,
       address: client.address || '',
-      phone: client.phone || 0,
+      phone: client.phone || '',
       mail: client.mail || '',
       city: client.city || '',
+      siret: client.siret || '',
     },
   });
 
@@ -126,6 +102,7 @@ export function UpdateClientForm({
         phone: data.phone,
         mail: data.mail,
         city: data.city,
+        siret: data.siret,
       });
       form.reset();
       toast(
@@ -192,29 +169,51 @@ export function UpdateClientForm({
                 )}
               />
             </div>
-            {/* ENTREPRISE  */}
 
-            <Controller
-              name="entreprise"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="form-rhf-demo-entreprise">
-                    Entreprise
-                  </FieldLabel>
-                  <Input
-                    {...field}
-                    id="form-rhf-demo-entreprise"
-                    aria-invalid={fieldState.invalid}
-                    placeholder="Resturant du Cap..."
-                    autoComplete="off"
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
+            <div className="flex justify-between items-center gap-8">
+              {/* ENTREPRISE  */}
+
+              <Controller
+                name="entreprise"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor="form-rhf-demo-entreprise">
+                      Entreprise
+                    </FieldLabel>
+                    <Input
+                      {...field}
+                      id="form-rhf-demo-entreprise"
+                      aria-invalid={fieldState.invalid}
+                      placeholder="Restaurant du Cap..."
+                      autoComplete="off"
+                    />
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
+              />
+              <Controller
+                name="siret"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor="form-rhf-demo-siret">SIRET</FieldLabel>
+                    <Input
+                      {...field}
+                      id="form-rhf-demo-siret"
+                      aria-invalid={fieldState.invalid}
+                      placeholder="A74FF"
+                      autoComplete="off"
+                    />
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
+              />
+            </div>
 
             {/* ADRESSE PAYS ET CODE POSTAL */}
             <div className="flex justify-between items-center gap-8">
@@ -292,12 +291,10 @@ export function UpdateClientForm({
                       Téléphone
                     </FieldLabel>
                     <Input
-                      type="number"
+                      type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       {...field}
-                      id="form-rhf-demo-phone"
-                      aria-invalid={fieldState.invalid}
-                      placeholder="0400000000"
-                      autoComplete="off"
                     />
                     {fieldState.invalid && (
                       <FieldError errors={[fieldState.error]} />

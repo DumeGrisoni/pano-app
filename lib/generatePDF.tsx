@@ -3,233 +3,319 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { changeDateFormat, formatDateData } from './formatDate';
+import { changeDateFormat } from './formatDate';
 import { Database } from '@/database.types';
+
+function CheckLine({ label, checked }: { label: string; checked?: boolean }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-lg">{checked ? '☑' : '☐'}</span>
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function formatFinition(value?: string) {
+  switch (value) {
+    case 'brut':
+      return 'Brut';
+    case 'oeillets_500':
+      return 'Œillets 500mm';
+    case 'oeillets_1000':
+      return 'Œillets 1000mm';
+    case 'oeillets_coins':
+      return 'Œillets coins';
+    default:
+      return value;
+  }
+}
+
+function getItemName(item: any) {
+  return item.isCustom ? item.customName : item.productName;
+}
+
+function getItemOptions(item: any) {
+  const options: string[] = [];
+
+  if (item.width) options.push(`Largeur : ${item.width} mm`);
+  if (item.height) options.push(`Hauteur : ${item.height} mm`);
+  if (item.length) options.push(`Longueur : ${item.length} mm`);
+  if (item.depth) options.push(`Profondeur : ${item.depth} mm`);
+
+  if (item.option1) options.push(`Option 1 : ${item.option1}`);
+  if (item.option2) options.push(`Option 2 : ${item.option2}`);
+
+  if (item.goodieOptions?.option1) {
+    options.push(`Couleur / finition : ${item.goodieOptions.option1}`);
+  }
+
+  if (item.goodieOptions?.option2) {
+    options.push(`Taille / autre : ${item.goodieOptions.option2}`);
+  }
+
+  if (item.goodieOptions?.placement) {
+    options.push(`Position marquage : ${item.goodieOptions.placement}`);
+  }
+
+  if (item.diffusant !== undefined && item.diffusant !== null) {
+    options.push(`Diffusant : ${item.diffusant ? 'Oui' : 'Non'}`);
+  }
+
+  if (item.bacheOptions?.finition) {
+    options.push(`Finition : ${formatFinition(item.bacheOptions.finition)}`);
+  }
+
+  if (item.cutOptions?.color) {
+    options.push(`Couleur : ${item.cutOptions.color}`);
+  }
+
+  if (item.cutOptions?.ral) {
+    options.push(`RAL : ${item.cutOptions.ral}`);
+  }
+
+  if (item.tintedFilmOptions?.pose) {
+    options.push(
+      `Pose film : ${
+        item.tintedFilmOptions.pose === 'inter' ? 'Intérieur' : 'Extérieur'
+      }`,
+    );
+  }
+
+  if (item.tintedFilmOptions?.ref) {
+    options.push(`Réf film : ${item.tintedFilmOptions.ref}`);
+  }
+
+  return options;
+}
+
+function chunkArray<T>(array: T[], size: number) {
+  const chunks: T[][] = [];
+
+  for (let i = 0; i < array.length; i += size) {
+    chunks.push(array.slice(i, i + size));
+  }
+
+  return chunks;
+}
+
+function ProjectHeader({
+  client,
+  project,
+  metadata,
+}: {
+  client: Database['public']['Tables']['Clients']['Row'];
+  project: Database['public']['Tables']['Projects']['Row'];
+  metadata: any;
+}) {
+  return (
+    <>
+      <CardHeader
+        className="rounded-md"
+        style={{
+          backgroundColor: '#374151',
+          color: 'white',
+          border: '1px solid #1f2937',
+
+          WebkitPrintColorAdjust: 'exact',
+          printColorAdjust: 'exact',
+        }}
+      >
+        <CardTitle className="text-2xl text-center mb-3">
+          {project.title}
+        </CardTitle>
+        <Separator className="bg-white" />
+        <CardDescription className="text-center flex flex-row justify-between ">
+          <div className="flex flex-col text-white gap-2 mt-2">
+            <p className="flex justify-between w-full gap-4">
+              <span>Entreprise :</span>
+              <span>{client.entreprise}</span>
+            </p>
+
+            <p className=" flex justify-between w-full gap-4">
+              <span>Nom :</span>
+              <span>
+                {client.name} {client.surname}
+              </span>
+            </p>
+          </div>
+
+          <div className="flex flex-col text-white gap-2 mt-2">
+            <p className="text-sm flex justify-between w-full gap-4">
+              <span>MAIL :</span>
+              <span>{client.mail ? client.mail : 'Non renseigné'}</span>
+            </p>
+
+            <p className="text-sm flex justify-between w-full gap-4">
+              <span>TEL :</span>
+              <span>{client.phone ? client.phone : 'Non renseigné'}</span>
+            </p>
+          </div>
+        </CardDescription>
+      </CardHeader>
+
+      <CardContent className="flex flex-col gap-4">
+        <div className="flex items-center justify-center gap-12 text-sm">
+          <CheckLine label="Fichier fourni" checked={metadata.isFile} />
+          <CheckLine label="BAT validé" checked={metadata.isBAT} />
+        </div>
+        <Separator />
+      </CardContent>
+    </>
+  );
+}
 
 export function ProjectPDF({
   client,
   project,
   metadata,
-  type,
 }: {
   client: Database['public']['Tables']['Clients']['Row'];
   project: Database['public']['Tables']['Projects']['Row'];
   metadata: any;
-  type: string;
+  type?: string;
 }) {
+  const items = metadata.items ?? [];
+
   return (
-    <div className="">
-      {/* PROD */}
-      {(type === 'prod' || type === 'all') && metadata.isProd && (
-        <PagePDF>
-          <h1 className="mb-2 text-center font-bold text-2xl">Production</h1>
-          <Card className="flex flex-col h-full">
-            <CardHeader>
-              <CardTitle className="text-2xl text-center mb-2">
-                {project.title}
-              </CardTitle>
-              <CardDescription className="text-center flex flex-col gap-2">
-                <div className="flex items-center justify-center gap-6">
-                  <p>
-                    {client.surname} {client.name} - {client.entreprise}
-                  </p>
-                  <p>
-                    {client.address} - {client.postalCode} {client.city}
-                  </p>
-                </div>
-                <div className="flex items-center justify-center gap-6">
-                  <p>
-                    Date Limite :{' '}
-                    {changeDateFormat(project.limitDate as string)}
-                  </p>
-                  <p>
-                    0{client.phone} - {client.mail}
-                  </p>
-                </div>
-              </CardDescription>
+    <div className="pdf-document ">
+      <div className="pdf-page flex flex-col gap-5">
+        <ProjectHeader client={client} project={project} metadata={metadata} />
 
-              <Separator />
-            </CardHeader>
+        <div className="flex flex-col gap-5">
+          <div className="border rounded-md">
+            <h2
+              className="text-xl font-semibold  text-center  rounded-t-md py-2"
+              style={{
+                backgroundColor: '#374151',
+                color: 'white',
+                border: '1px solid #1f2937',
 
-            {/* 🔥 WRAPPER GLOBAL */}
-            <div className="flex flex-col flex-1 w-full">
-              {/* 🔥 PRODUITS (2/3) */}
-              <div className="flex-1 overflow-hidden">
-                <CardContent className="w-full">
-                  <h2 className="text-xl font-semibold mb-4 text-center">
-                    Produits
-                  </h2>
-                  <Separator />
+                WebkitPrintColorAdjust: 'exact',
+                printColorAdjust: 'exact',
+              }}
+            >
+              Production
+            </h2>
 
-                  {metadata.items?.map((item: any, i: number) => (
-                    <div
-                      key={i}
-                      className="grid grid-cols-3 items-center border-b py-2 text-sm"
-                    >
-                      <div className="truncate">{item.productName}</div>
-                      <div className="text-center">{item.quantity}</div>
-                      <div className="text-right">
-                        {item.width} x {item.height}
+            {items.map((item: any, index: number) => {
+              const options = getItemOptions(item);
+
+              return (
+                <div
+                  key={index}
+                  className="pdf-avoid-break px-2 flex justify-between gap-6  py-4 text-sm"
+                >
+                  <div className="flex flex-col gap-1">
+                    <span className="font-medium">{getItemName(item)}</span>
+                    <span className="text-xs">Quantité : {item.quantity}</span>
+                  </div>
+
+                  <div className="flex flex-col gap-1 items-end text-right">
+                    {options.length > 0 ? (
+                      options.map((option, i) => (
+                        <span key={i} className="text-xs">
+                          {option}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+
+                    {item.plastifEnabled && (
+                      <div className="flex items-center gap-2 text-xs">
+                        <span>☑ Plastif</span>
+                        {item.plastifProductName && (
+                          <span>{item.plastifProductName}</span>
+                        )}
                       </div>
-                    </div>
-                  ))}
-
-                  <div className=" mt-4 border rounded-md p-4 w-full">
-                    <p className="mt-4">{project.note}</p>
+                    )}
                   </div>
-                </CardContent>
-              </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex flex-col ">
+            <h2
+              className="text-lg font-semibold text-center rounded-t-md py-2"
+              style={{
+                backgroundColor: '#374151',
+                color: 'white',
+                border: '1px solid #1f2937',
 
-              {/* 🔥 NOTE (1/3) */}
-              <div className="flex-1 flex flex-col">
-                <CardFooter className="flex flex-col w-full h-full">
-                  <h2 className="text-xl font-semibold mb-4 text-center">
-                    Note
-                  </h2>
-                  <Separator />
-                  <div className="flex-1 border rounded-md p-4 w-full">
-                    <p className="mt-4">{metadata.prodNote}</p>
-                  </div>
-                </CardFooter>
+                WebkitPrintColorAdjust: 'exact',
+                printColorAdjust: 'exact',
+              }}
+            >
+              Description
+            </h2>
+            <div className="pdf-avoid-break border rounded-b-md p-4">
+              <p className="text-sm whitespace-pre-wrap">{project.note}</p>
+            </div>
+          </div>
+          <div className="flex flex-col ">
+            <h2
+              className="text-lg font-semibold text-center rounded-t-md py-2"
+              style={{
+                backgroundColor: '#374151',
+                color: 'white',
+                border: '1px solid #1f2937',
+
+                WebkitPrintColorAdjust: 'exact',
+                printColorAdjust: 'exact',
+              }}
+            >
+              Date limite
+            </h2>
+            <div className="pdf-avoid-break border rounded-md p-4">
+              <p className="text-sm text-center">
+                {project.limitDate
+                  ? changeDateFormat(project.limitDate as string)
+                  : 'Non renseignée'}
+              </p>
+            </div>
+          </div>
+
+          <div className="border rounded-md">
+            <div
+              className="pdf-avoid-break border rounded-t-md p-4 flex flex-col gap-3"
+              style={{
+                backgroundColor: '#374151',
+                color: 'white',
+                border: '1px solid #1f2937',
+
+                WebkitPrintColorAdjust: 'exact',
+                printColorAdjust: 'exact',
+              }}
+            >
+              <div className="flex items-center gap-8">
+                <CheckLine label="Pose" checked={metadata.isPose} />
+
+                {metadata.isPose && (
+                  <>
+                    <p className="">
+                      Date de pose :{' '}
+                      {metadata.poseDate
+                        ? changeDateFormat(metadata.poseDate.split('T')[0])
+                        : 'Non renseignée'}
+                    </p>
+
+                    <CheckLine label="Nacelle" checked={metadata.isNacelle} />
+                  </>
+                )}
               </div>
             </div>
-          </Card>
-        </PagePDF>
-      )}
-
-      {/* GRAPHISME */}
-      {(type === 'graphisme' || type === 'all') && metadata.isGraphisme && (
-        <PagePDF>
-          <h2 className="text-2xl font-semibold mb-4 text-center ">Visuel</h2>
-          <Card className="flex flex-col h-full">
-            <CardHeader>
-              <CardTitle className="text-2xl text-center mb-4">
-                {project.clientFullName} - {project.title}
-              </CardTitle>
-              <CardDescription className="text-center mb-2 flex flex-col gap-2 ">
-                <div className="flex items-center justify-center gap-6">
-                  <p>
-                    {client.surname} {client.name} - {client.entreprise}
-                  </p>
-                  <p>
-                    {client.address} - {client.postalCode} {client.city}
-                  </p>
-                </div>
-                <div className="flex items-center justify-center gap-6">
-                  <p>
-                    Date Limite :{' '}
-                    {changeDateFormat(project.limitDate as string)}
-                  </p>
-                  <p>
-                    0{client.phone} - {client.mail}
-                  </p>
-                </div>
-              </CardDescription>
-              <Separator />
-            </CardHeader>
-            <CardContent className="w-full">
-              {/* 🔥 WRAPPER GLOBAL */}
-              <div className="flex flex-col flex-1 w-full gap-6 ">
-                <div className=" mt-4 border rounded-md p-4 w-full">
-                  <p className="mt-4">{project.note}</p>
-                </div>
-                {/* 🔥 NOTE */}
-                <h2 className="text-xl  font-semibold mb-4 text-center">
-                  Note de Visuel
-                </h2>
-
-                <div className="flex-1 border rounded-md p-4">
-                  <p className="mt-4">{metadata.graphismeNote}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </PagePDF>
-      )}
-
-      {/* POSE */}
-      {(type === 'pose' || type === 'all') && metadata.isPose && (
-        <PagePDF>
-          <h1 className="mb-4 text-center font-bold text-2xl ">Pose</h1>
-          <Card className="flex flex-col h-full">
-            <CardHeader>
-              <CardTitle className="text-2xl text-center mb-4">
-                {project.clientFullName} - {project.title}
-              </CardTitle>
-              <CardDescription className="text-center  flex flex-col gap-2">
-                <div className="flex items-center justify-center gap-6">
-                  <p>
-                    {client.surname} {client.name} - {client.entreprise}
-                  </p>
-                  <p>
-                    {client.address} - {client.postalCode} {client.city}
-                  </p>
-                </div>
-                <div className="flex items-center justify-center gap-6">
-                  <p>
-                    Date Limite :{' '}
-                    {changeDateFormat(project.limitDate as string)}
-                  </p>
-                  <p>
-                    0{client.phone} - {client.mail}
-                  </p>
-                </div>
-              </CardDescription>
-              <Separator />
-            </CardHeader>
-
-            {/* 🔥 WRAPPER GLOBAL */}
-            <div className="flex flex-col flex-1 w-full mt-4">
-              {/* 🔥 PRODUITS (2/3) */}
-              <div className="flex-1 overflow-hidden">
-                <CardContent className="w-full">
-                  <h2 className="text-xl font-semibold mb-4 text-center">
-                    Produits
-                  </h2>
-                  <Separator />
-
-                  <p>{client.address}</p>
-
-                  {metadata.items?.map((item: any, i: number) => (
-                    <div
-                      key={i}
-                      className="grid grid-cols-3 items-center border-b py-2 text-sm"
-                    >
-                      <div className="truncate">{item.productName}</div>
-                      <div className="text-center">{item.quantity}</div>
-                      <div className="text-right">
-                        {item.width} x {item.height}
-                      </div>
-                    </div>
-                  ))}
-
-                  <div className=" mt-4 border rounded-md p-4 w-full">
-                    <p className="mt-4">{project.note}</p>
-                  </div>
-                </CardContent>
-              </div>
-
-              {/* 🔥 NOTE (1/3) */}
-              <div className="flex-1 flex flex-col">
-                <CardFooter className="flex flex-col w-full h-full">
-                  <h2 className="text-xl font-semibold mb-4 text-center">
-                    Détails de pose
-                  </h2>
-                  <Separator />
-                  <div className="flex-1 border rounded-md p-4 w-full">
-                    <p className="mt-4">{metadata.poseNote}</p>
-                  </div>
-                </CardFooter>
-              </div>
-            </div>
-          </Card>
-        </PagePDF>
-      )}
+            <p className="text-center py-4 mt-2">
+              {metadata.isPose && metadata.poseAdresse && (
+                <p className="">Adresse de pose : {metadata.poseAdresse}</p>
+              )}
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
