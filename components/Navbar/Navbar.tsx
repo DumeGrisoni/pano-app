@@ -18,7 +18,7 @@ const Navbar = () => {
 
   const navLinks = [
     { href: '/protected', label: 'ACCUEIL' },
-    { href: '/protected/fournitures', label: 'FOURNITURES' },
+    { href: '/protected/products', label: 'FOURNITURES' },
     { href: '/protected/clients', label: 'CLIENTS' },
     { href: '/protected/projects', label: 'PROJETS' },
     { href: '/protected/orders', label: 'COMMANDES' },

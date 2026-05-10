@@ -7,7 +7,9 @@ import {
   getPaginationRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-
+import Link from 'next/link';
+import { Eye } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import {
   Table,
   TableBody,
@@ -41,7 +43,30 @@ export function DataTable<TData, TValue>({
   const deferredSearch = useDeferredValue(search);
 
   // 🔥 stabilise les colonnes (CRUCIAL)
-  const memoColumns = useMemo(() => columns, [columns]);
+  const memoColumns = useMemo(
+    () => [
+      ...columns,
+
+      {
+        id: 'actions',
+
+        header: 'Voir',
+
+        cell: ({ row }: any) => (
+          <Link
+            href={`/protected/fournitures//${row.original.id}`}
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            <Button size="icon" variant="ghost">
+              <Eye className="w-4 h-4" />
+            </Button>
+          </Link>
+        ),
+      },
+    ],
+    [columns],
+  );
 
   // 🔍 filtre optimisé
   const filteredData = useMemo(() => {

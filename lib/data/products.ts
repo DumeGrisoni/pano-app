@@ -27,3 +27,28 @@ export async function createProduct(
 
   return newProduct;
 }
+
+export async function getProduct(id: number) {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('Products')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error) throw error;
+
+  return data;
+}
+
+export async function updateProduct(
+  id: number,
+  data: Database['public']['Tables']['Products']['Update'],
+) {
+  const supabase = await createClient();
+
+  const { error } = await supabase.from('Products').update(data).eq('id', id);
+
+  if (error) throw error;
+}
