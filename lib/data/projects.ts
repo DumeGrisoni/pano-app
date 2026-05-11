@@ -9,7 +9,7 @@ export async function getAllProjects() {
   const { data, error } = await supabase
     .from('Projects')
     .select()
-    .neq('status', 'DONE'); // 👈 filtre ici
+    .neq('status', 'PAYED'); // 👈 filtre ici
 
   if (error) throw error;
 
