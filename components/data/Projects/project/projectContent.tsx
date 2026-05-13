@@ -85,6 +85,7 @@ type Item = {
     ref?: string;
   };
 
+  manualTotal?: number | null;
   components?: BundleComponent[] | BundleComponent | string;
 
   isCustom?: boolean;
@@ -471,7 +472,7 @@ export default function ProjectContent() {
     updateItems(copy);
   }
 
-  function getItemTotal(item: Item) {
+  function getCalculatedItemTotal(item: Item) {
     const qty = Number(item.quantity);
 
     const price = item.isCustom
@@ -505,6 +506,7 @@ export default function ProjectContent() {
       case 'm2': {
         const width = (Number(item.width) || 0) / 1000;
         const height = (Number(item.height) || 0) / 1000;
+
         return width * height * price * qty;
       }
 
@@ -512,17 +514,27 @@ export default function ProjectContent() {
         const width = (Number(item.width) || 0) / 1000;
         const height = (Number(item.height) || 0) / 1000;
         const depth = (Number(item.depth) || 0) / 1000;
+
         return width * height * depth * price * qty;
       }
 
       case 'lot': {
         const divider = item.unit_multiplier || 1;
+
         return (qty / divider) * price;
       }
 
       default:
         return 0;
     }
+  }
+
+  function getItemTotal(item: Item) {
+    if (item.manualTotal !== null && item.manualTotal !== undefined) {
+      return Number(item.manualTotal);
+    }
+
+    return getCalculatedItemTotal(item);
   }
 
   function validateProjectDetails() {
@@ -986,8 +998,28 @@ export default function ProjectContent() {
                         </>
                       )}
 
-                      <div className="font-semibold h-10 flex items-center whitespace-nowrap">
-                        {getItemTotal(item).toFixed(2)} €
+                      <div className="flex flex-col gap-1">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          className="w-28"
+                          value={
+                            item.manualTotal !== null &&
+                            item.manualTotal !== undefined
+                              ? item.manualTotal
+                              : Number(getCalculatedItemTotal(item).toFixed(2))
+                          }
+                          onChange={(e) => {
+                            const copy = [...items];
+
+                            copy[index].manualTotal =
+                              e.target.value === ''
+                                ? null
+                                : Number(e.target.value);
+
+                            updateItems(copy);
+                          }}
+                        />
                       </div>
 
                       <Button
