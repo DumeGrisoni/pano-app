@@ -95,6 +95,7 @@ type Item = {
     color?: string;
     ral?: string;
   };
+  manualTotal?: number | null;
   tintedFilmOptions?: {
     pose?: 'inter' | 'exter';
     ref?: string;
@@ -354,10 +355,14 @@ export function AddProjectForm({
   }
 
   function itemNeedsGoodieOptions(item: Item) {
+    if (itemHasOtherOnly(item)) return false;
+
     return itemHasGoodie(item) && !itemNeedsDimensions(item);
   }
 
   function itemNeedsBundleGoodiePlacement(item: Item) {
+    if (itemHasOtherOnly(item)) return false;
+
     return itemIsBundle(item) && itemHasGoodie(item);
   }
 
@@ -456,7 +461,7 @@ export function AddProjectForm({
     updateItems(copy);
   }
 
-  function getItemTotal(item: Item) {
+  function getCalculatedItemTotal(item: Item) {
     const qty = Number(item.quantity);
 
     const price = item.isCustom
@@ -510,6 +515,14 @@ export function AddProjectForm({
     }
   }
 
+  function getItemTotal(item: Item) {
+    if (item.manualTotal !== null && item.manualTotal !== undefined) {
+      return Number(item.manualTotal) || 0;
+    }
+
+    return getCalculatedItemTotal(item);
+  }
+
   function validateProjectDetails() {
     if (items.length === 0) {
       toast.error('Ajoute au moins un produit');
@@ -549,7 +562,12 @@ export function AddProjectForm({
         }
       }
 
-      if (item.isCustom && (!item.customPrice || item.customPrice <= 0)) {
+      if (
+        item.isCustom &&
+        (item.manualTotal === null ||
+          item.manualTotal === undefined ||
+          item.manualTotal <= 0)
+      ) {
         toast.error(`Prix invalide pour ${name}`);
         return false;
       }
@@ -581,7 +599,7 @@ export function AddProjectForm({
         }
       }
 
-      if (itemNeedsGoodieOptions(item) || itemHasOtherOnly(item)) {
+      if (itemNeedsGoodieOptions(item)) {
         if (!item.option1?.trim() && !item.goodieOptions?.option1?.trim()) {
           toast.error(`Option 1 obligatoire pour ${name}`);
           return false;
@@ -915,9 +933,27 @@ export function AddProjectForm({
                         </>
                       )}
 
-                      <div className="font-semibold h-10 flex items-center whitespace-nowrap">
-                        {getItemTotal(item).toFixed(2)} €
-                      </div>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        className="w-24"
+                        value={
+                          item.manualTotal !== null &&
+                          item.manualTotal !== undefined
+                            ? item.manualTotal
+                            : Number(getCalculatedItemTotal(item).toFixed(2))
+                        }
+                        onChange={(e) => {
+                          const copy = [...items];
+
+                          copy[index].manualTotal =
+                            e.target.value === ''
+                              ? null
+                              : Number(e.target.value);
+
+                          updateItems(copy);
+                        }}
+                      />
 
                       <Button
                         type="button"
@@ -1287,6 +1323,7 @@ export function AddProjectForm({
                           unitPrice: 0,
                           pricing_type: 'unit',
                           unit_multiplier: 1,
+                          manualTotal: null,
                           option1: '',
                           option2: '',
                           diffusant: null,

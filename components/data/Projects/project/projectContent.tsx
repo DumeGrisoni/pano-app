@@ -333,10 +333,14 @@ export default function ProjectContent() {
   }
 
   function itemNeedsGoodieOptions(item: Item) {
+    if (itemHasOtherOnly(item)) return false;
+
     return itemHasGoodie(item) && !itemNeedsDimensions(item);
   }
 
   function itemNeedsBundleGoodiePlacement(item: Item) {
+    if (itemHasOtherOnly(item)) return false;
+
     return itemIsBundle(item) && itemHasGoodie(item);
   }
 
@@ -556,7 +560,12 @@ export default function ProjectContent() {
         return false;
       }
 
-      if (item.isCustom && (!item.customPrice || item.customPrice <= 0)) {
+      if (
+        item.isCustom &&
+        (item.manualTotal === null ||
+          item.manualTotal === undefined ||
+          item.manualTotal <= 0)
+      ) {
         toast.error(`Prix invalide pour ${name}`);
         return false;
       }
@@ -610,7 +619,7 @@ export default function ProjectContent() {
         }
       }
 
-      if (itemNeedsGoodieOptions(item) || itemHasOtherOnly(item)) {
+      if (itemNeedsGoodieOptions(item)) {
         if (!item.option1?.trim() && !item.goodieOptions?.option1?.trim()) {
           toast.error(`Option 1 obligatoire pour ${name}`);
           return false;
@@ -1354,6 +1363,7 @@ export default function ProjectContent() {
                         {
                           productId: 0,
                           productName: '',
+                          manualTotal: null,
                           productType: '',
                           type: '',
                           components: [],
@@ -1389,6 +1399,7 @@ export default function ProjectContent() {
                           customName: '',
                           customPrice: 0,
                           quantity: 1,
+                          manualTotal: null,
                           width: 0,
                           height: 0,
                           unitPrice: 0,
@@ -1569,7 +1580,7 @@ export default function ProjectContent() {
                                 type: productType,
 
                                 components: productComponents,
-
+                                manualTotal: null,
                                 isCustom: false,
                                 customName: '',
                                 customPrice: 0,
