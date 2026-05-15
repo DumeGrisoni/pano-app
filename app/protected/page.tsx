@@ -42,7 +42,10 @@ export default function Home() {
     });
 
     projects
-      .filter((project) => project.status !== 'PAYED')
+      .filter(
+        (project) =>
+          project.status !== 'PAYED' && project.status !== 'CANCELED',
+      )
       .forEach((project) => {
         const status = project.status as ProjectStatus;
 
@@ -71,7 +74,7 @@ export default function Home() {
 
       <div className="grid w-full grid-cols-1 xl:grid-cols-2 gap-6">
         {Object.entries(PROJECT_STATUS)
-          .filter(([status]) => status !== 'PAYED')
+          .filter(([status]) => status !== 'PAYED' && status !== 'CANCELED')
           .map(([status, config]) => {
             const statusProjects = projectsByStatus[status as ProjectStatus];
             const colorClass = COLOR_MAP[config.color];
@@ -112,11 +115,11 @@ export default function Home() {
                         {statusProjects.length > 0 ? (
                           statusProjects.map((project) => (
                             <TableRow key={project.id}>
-                              <TableCell className="font-medium">
+                              <TableCell className="font-medium max-w-[180px] whitespace-normal break-words">
                                 {project.title}
                               </TableCell>
 
-                              <TableCell className="">
+                              <TableCell className="max-w-[180px] whitespace-normal break-words">
                                 {project.entreprise || project.clientFullName}
                               </TableCell>
 
