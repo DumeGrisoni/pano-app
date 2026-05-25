@@ -822,7 +822,7 @@ async function handleWhoChange(value: WhoOption) {
             ))}
           </SelectContent>
         </Select>
-
+{/* Graphistes  */}
         <Select
   value={(project as any).Who || ''}
   onValueChange={(value) => handleWhoChange(value as WhoOption)}
