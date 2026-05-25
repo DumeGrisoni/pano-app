@@ -142,6 +142,9 @@ function normalizeType(value: unknown) {
     .trim()
     .toLowerCase();
 }
+const WHO_OPTIONS = ['Dumè', 'Manu', 'Matt'] as const;
+
+type WhoOption = (typeof WHO_OPTIONS)[number];
 
 function normalizeComponents(raw: unknown): BundleComponent[] {
   try {
@@ -208,6 +211,8 @@ export default function ProjectContent() {
 
   const [previewPDF, setPreviewPDF] = useState(false);
 
+  
+
   const plastifProducts = useMemo(() => {
     return products.filter((product) =>
       normalizeText(product.title).includes('plastif'),
@@ -223,7 +228,30 @@ export default function ProjectContent() {
     poseAdresse,
     items,
   };
+async function handleWhoChange(value: WhoOption) {
+  if (!project.id) return;
 
+  const now = new Date().toISOString();
+  const currentWhen = (project as any).when;
+
+  const payload = {
+    Who: value,
+    when: currentWhen || now,
+    updateWhen: now,
+  };
+
+  setProject((prev) => ({
+    ...prev,
+    ...payload,
+  }));
+
+  try {
+    await updateProject(project.id, payload as any);
+    toast.success('Responsable mis à jour');
+  } catch {
+    toast.error('Erreur pendant la mise à jour du responsable');
+  }
+}
   useEffect(() => {
     async function fetchData() {
       if (!id) return;
@@ -794,6 +822,23 @@ export default function ProjectContent() {
             ))}
           </SelectContent>
         </Select>
+
+        <Select
+  value={(project as any).Who || ''}
+  onValueChange={(value) => handleWhoChange(value as WhoOption)}
+>
+  <SelectTrigger className="w-auto min-w-32 px-2">
+    <SelectValue placeholder="Qui ?" />
+  </SelectTrigger>
+
+  <SelectContent side="bottom" align="start" position="popper">
+    {WHO_OPTIONS.map((name) => (
+      <SelectItem key={name} value={name}>
+        {name}
+      </SelectItem>
+    ))}
+  </SelectContent>
+</Select>
 
         <div className="flex gap-3">
           <Button type="button" onClick={() => setPreviewPDF(true)}>
