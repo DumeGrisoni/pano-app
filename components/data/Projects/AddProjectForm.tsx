@@ -50,7 +50,7 @@ const formSchema = z.object({
   title: z
     .string()
     .min(1, 'Le titre doit avoir au moins 1 caractère.')
-    .max(32, 'Le titre doit avoir au plus 32 caractères.'),
+    .max(100, 'Le titre doit avoir au plus 100 caractères.'),
   isUrgent: z.boolean().default(false),
   entreprise: z.string(),
   limitDate: z.date(),
