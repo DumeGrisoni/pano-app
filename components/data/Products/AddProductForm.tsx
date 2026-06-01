@@ -58,7 +58,7 @@ const formSchema = z.object({
   color: z.string().optional(),
 
   productType: z.enum(['media', 'support', 'goodie', 'other', 'bundle']),
-  supplier: z.string().min(1),
+  supplier: z.string().min(1, 'Sélectionner un fournisseur'),
 
   pricingType: z.enum(['unit', 'm2', 'ml', 'm3', 'lot']),
   unitMultiplier: z.preprocess((val) => Number(val), z.number().optional()),
@@ -117,7 +117,7 @@ export function AddProductForm() {
     defaultValues: {
       title: '',
       ref: '',
-      supplier: 'other',
+      supplier: '',
       price: 0,
       productType: 'other',
       pricingType: 'unit',
@@ -156,13 +156,9 @@ export function AddProductForm() {
     if (!validateBundle()) return;
 
     try {
-      const supplierId =
-        data.supplier === 'other' ? null : Number(data.supplier);
+      const supplierId = Number(data.supplier);
 
-      const supplierName =
-        data.supplier === 'other'
-          ? 'Autre / Inconnu'
-          : supplierMap.get(Number(data.supplier)) || '';
+      const supplierName = supplierMap.get(Number(data.supplier)) || '';
 
       await createProduct({
         title: data.title,
@@ -184,7 +180,7 @@ export function AddProductForm() {
       form.reset({
         title: '',
         ref: '',
-        supplier: 'other',
+        supplier: '',
         price: 0,
         productType: 'other',
         pricingType: 'unit',
@@ -270,8 +266,6 @@ export function AddProductForm() {
                     </SelectTrigger>
 
                     <SelectContent>
-                      <SelectItem value="other">Autre / Inconnu</SelectItem>
-
                       {suppliers.map((supplier) => (
                         <SelectItem
                           key={supplier.id}
@@ -510,7 +504,7 @@ export function AddProductForm() {
               form.reset({
                 title: '',
                 ref: '',
-                supplier: 'other',
+                supplier: '',
                 price: 0,
                 productType: 'other',
                 pricingType: 'unit',
