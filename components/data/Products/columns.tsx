@@ -51,7 +51,7 @@ export const columns: ColumnDef<
                 });
               }}
             >
-              Ajouter
+              Commander
             </Button>
           )}
         </div>
