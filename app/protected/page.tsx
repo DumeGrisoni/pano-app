@@ -37,20 +37,22 @@ const GRAPHISTS = [
   },
 ] as const;
 
-const DASHBOARD_ORDER = [
+type DashboardItem =
+  | { type: 'status'; key: ProjectStatus }
+  | { type: 'graphists-row'; key: 'GRAPHISTS' };
+
+const DASHBOARD_ORDER: DashboardItem[] = [
   { type: 'status', key: 'PENDING_QUOTE' },
   { type: 'status', key: 'QUOTED' },
   { type: 'status', key: 'IN_DESIGN' },
   { type: 'status', key: 'IN_COMMAND' },
 
-  { type: 'graphist', key: 'Dumè' },
-  { type: 'graphist', key: 'Manu' },
-  { type: 'graphist', key: 'Matt' },
+  { type: 'graphists-row', key: 'GRAPHISTS' },
 
   { type: 'status', key: 'IN_PRODUCTION' },
   { type: 'status', key: 'TO_DELIVER' },
   { type: 'status', key: 'DONE' },
-] as const;
+];
 
 function sortProjectsByTitle(projects: Project[]) {
   return [...projects].sort((a, b) => {
@@ -69,36 +71,53 @@ function getProjectWho(project: Project) {
   return String((project as any).Who ?? '').trim();
 }
 
+function getProjectFolder(project: Project) {
+  const metadata = (project.metadata ?? {}) as {
+    folderMonth?: string;
+    folderNumber?: string;
+  };
+
+  if (!metadata.folderMonth || !metadata.folderNumber) return '—';
+
+  return `${metadata.folderMonth}-${metadata.folderNumber}`;
+}
+
 function ProjectMiniTable({
   projects,
   maxHeight = 'max-h-[260px]',
   showStatus = false,
+  showFolder = false,
 }: {
   projects: Project[];
   maxHeight?: string;
   showStatus?: boolean;
+  showFolder?: boolean;
 }) {
+  const colSpan = showFolder ? 5 : 4;
+
   return (
-    <CardContent className="p-0">
-      <Table>
-        <TableHeader>
-          <TableRow className="bg-background border-b">
-            <TableHead className="w-[35%]">Projet</TableHead>
-            <TableHead className="w-[30%]">Client</TableHead>
+    <CardContent className="relative z-0 p-0">
+      <div className={`relative z-0 ${maxHeight} overflow-y-auto`}>
+        <Table className="table-fixed w-full">
+          <TableHeader className="sticky top-0 z-10 bg-background">
+            <TableRow className="border-b">
+              <TableHead className="w-[34%]">Projet</TableHead>
+              <TableHead className="w-[28%]">Client</TableHead>
 
-            {showStatus && <TableHead className="w-[20%]">Statut</TableHead>}
+              {showStatus ? (
+                <TableHead className="w-[24%]">Statut</TableHead>
+              ) : (
+                <TableHead className={showFolder ? 'w-[18%]' : 'w-[28%]'}>
+                  Date limite
+                </TableHead>
+              )}
 
-            {!showStatus && (
-              <TableHead className="w-[25%]">Date limite</TableHead>
-            )}
+              {showFolder && <TableHead className="w-[12%]">Dossier</TableHead>}
 
-            <TableHead className="w-[10%] text-center">Voir</TableHead>
-          </TableRow>
-        </TableHeader>
-      </Table>
+              <TableHead className="w-[8%] text-center">Voir</TableHead>
+            </TableRow>
+          </TableHeader>
 
-      <div className={`${maxHeight} overflow-y-auto`}>
-        <Table>
           <TableBody>
             {projects.length > 0 ? (
               projects.map((project) => {
@@ -107,26 +126,34 @@ function ProjectMiniTable({
 
                 return (
                   <TableRow key={project.id}>
-                    <TableCell className="font-medium max-w-[160px] whitespace-normal break-words">
+                    <TableCell className="font-medium whitespace-normal break-words">
                       {project.title}
                     </TableCell>
 
-                    <TableCell className="max-w-[160px] whitespace-normal break-words">
+                    <TableCell className="whitespace-normal break-words">
                       {project.entreprise || project.clientFullName}
                     </TableCell>
 
                     {showStatus ? (
-                      <TableCell>
+                      <TableCell className="whitespace-normal break-words">
                         {statusConfig?.label ?? project.status ?? '—'}
                       </TableCell>
                     ) : (
-                      <TableCell>
-                        {project.limitDate
-                          ? new Date(project.limitDate).toLocaleDateString(
-                              'fr-FR',
-                            )
-                          : '—'}
-                      </TableCell>
+                      <>
+                        <TableCell>
+                          {project.limitDate
+                            ? new Date(project.limitDate).toLocaleDateString(
+                                'fr-FR',
+                              )
+                            : '—'}
+                        </TableCell>
+
+                        {showFolder && (
+                          <TableCell className="font-medium">
+                            {getProjectFolder(project)}
+                          </TableCell>
+                        )}
+                      </>
                     )}
 
                     <TableCell className="text-center">
@@ -146,7 +173,7 @@ function ProjectMiniTable({
             ) : (
               <TableRow>
                 <TableCell
-                  colSpan={4}
+                  colSpan={colSpan}
                   className="h-16 text-center text-muted-foreground"
                 >
                   Aucun projet
@@ -181,7 +208,9 @@ export default function Home() {
       (acc, graphist) => {
         acc[graphist.name] = sortProjectsByTitle(
           activeProjects.filter(
-            (project) => getProjectWho(project) === graphist.name,
+            (project) =>
+              project.status === 'IN_DESIGN' &&
+              getProjectWho(project) === graphist.name,
           ),
         );
 
@@ -191,32 +220,32 @@ export default function Home() {
     );
   }, [activeProjects]);
 
-const projectsByStatus = React.useMemo(() => {
-  const grouped = {} as Record<ProjectStatus, Project[]>;
+  const projectsByStatus = React.useMemo(() => {
+    const grouped = {} as Record<ProjectStatus, Project[]>;
 
-  Object.keys(PROJECT_STATUS).forEach((status) => {
-    grouped[status as ProjectStatus] = [];
-  });
+    Object.keys(PROJECT_STATUS).forEach((status) => {
+      grouped[status as ProjectStatus] = [];
+    });
 
-  activeProjects.forEach((project) => {
-    const status = project.status as ProjectStatus;
-    const who = getProjectWho(project);
+    activeProjects.forEach((project) => {
+      const status = project.status as ProjectStatus;
+      const who = getProjectWho(project);
 
-    if (status === 'IN_DESIGN' && who) return;
+      if (status === 'IN_DESIGN' && who) return;
 
-    if (grouped[status]) {
-      grouped[status].push(project);
-    }
-  });
+      if (grouped[status]) {
+        grouped[status].push(project);
+      }
+    });
 
-  Object.keys(grouped).forEach((status) => {
-    grouped[status as ProjectStatus] = sortProjectsByTitle(
-      grouped[status as ProjectStatus],
-    );
-  });
+    Object.keys(grouped).forEach((status) => {
+      grouped[status as ProjectStatus] = sortProjectsByTitle(
+        grouped[status as ProjectStatus],
+      );
+    });
 
-  return grouped;
-}, [activeProjects]);
+    return grouped;
+  }, [activeProjects]);
 
   return (
     <div className="min-h-screen w-full flex flex-col gap-8 p-6">
@@ -224,64 +253,73 @@ const projectsByStatus = React.useMemo(() => {
         PROJETS EN COURS
       </h1>
 
-<div className="grid w-full grid-cols-1 xl:grid-cols-2 gap-6">
-  {DASHBOARD_ORDER.map((item) => {
-    if (item.type === 'graphist') {
-      const graphist = GRAPHISTS.find((g) => g.name === item.key);
-      if (!graphist) return null;
+      <div className="grid w-full grid-cols-1 xl:grid-cols-2 gap-6">
+        {DASHBOARD_ORDER.map((item) => {
+          if (item.type === 'graphists-row') {
+            return (
+              <div
+                key="graphists-row"
+                className="xl:col-span-2 grid w-full grid-cols-1 md:grid-cols-3 gap-4"
+              >
+                {GRAPHISTS.map((graphist) => {
+                  const graphistProjects = projectsByGraphist[graphist.name];
 
-      const graphistProjects = projectsByGraphist[graphist.name];
+                  return (
+                    <Card
+                      key={graphist.name}
+                      className="w-full overflow-hidden border shadow-sm"
+                    >
+                      <CardHeader
+                        className={`${graphist.colorClass} border-b py-3`}
+                      >
+                        <CardTitle className="flex items-center justify-between text-base">
+                          <span>{graphist.name}</span>
+                          <span className="rounded-full bg-black/20 px-3 py-1 text-sm font-semibold text-white">
+                            {graphistProjects.length}
+                          </span>
+                        </CardTitle>
+                      </CardHeader>
 
-      return (
-        <Card
-          key={graphist.name}
-          className="w-full overflow-hidden border shadow-sm"
-        >
-          <CardHeader className={`${graphist.colorClass} border-b py-3`}>
-            <CardTitle className="flex items-center justify-between text-base">
-              <span>{graphist.name}</span>
-              <span className="rounded-full bg-black/20 px-3 py-1 text-sm font-semibold text-white">
-                {graphistProjects.length}
-              </span>
-            </CardTitle>
-          </CardHeader>
+                      <ProjectMiniTable
+                        projects={graphistProjects}
+                        maxHeight="max-h-[220px]"
+                        showStatus={false}
+                      />
+                    </Card>
+                  );
+                })}
+              </div>
+            );
+          }
 
-          <ProjectMiniTable
-            projects={graphistProjects}
-            maxHeight="max-h-[220px]"
-            showStatus
-          />
-        </Card>
-      );
-    }
+          const status = item.key;
+          const config = PROJECT_STATUS[status];
+          const statusProjects = projectsByStatus[status];
+          const colorClass = COLOR_MAP[config.color];
 
-    const status = item.key as ProjectStatus;
-    const config = PROJECT_STATUS[status];
-    const statusProjects = projectsByStatus[status];
-    const colorClass = COLOR_MAP[config.color];
+          return (
+            <Card
+              key={status}
+              className="w-full overflow-hidden border shadow-sm"
+            >
+              <CardHeader className={`${colorClass} border-b`}>
+                <CardTitle className="flex items-center justify-between text-base">
+                  <span>{config.label}</span>
+                  <span className="rounded-full bg-black/20 px-3 py-1 text-sm font-semibold text-white">
+                    {statusProjects.length}
+                  </span>
+                </CardTitle>
+              </CardHeader>
 
-    return (
-      <Card
-        key={status}
-        className="w-full overflow-hidden border shadow-sm"
-      >
-        <CardHeader className={`${colorClass} border-b`}>
-          <CardTitle className="flex items-center justify-between text-base">
-            <span>{config.label}</span>
-            <span className="rounded-full bg-black/20 px-3 py-1 text-sm font-semibold text-white">
-              {statusProjects.length}
-            </span>
-          </CardTitle>
-        </CardHeader>
-
-        <ProjectMiniTable
-          projects={statusProjects}
-          maxHeight="max-h-[360px]"
-        />
-      </Card>
-    );
-  })}
-</div>
+              <ProjectMiniTable
+                projects={statusProjects}
+                maxHeight="max-h-[360px]"
+                showFolder={status === 'IN_PRODUCTION'}
+              />
+            </Card>
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -14,8 +14,8 @@ export default function ProtectedLayout({
   return (
     <main className="min-h-screen flex flex-col items-center">
       <div className="flex-1 w-full flex flex-col gap-20 items-center">
-        <nav className="w-full flex justify-center border-b border-b-foreground/10 h-[8vh] bg-background fixed">
-          <div className="w-full flex justify-between items-center p-3 px-5 text-sm">
+        <nav className="fixed top-0 left-0 z-[9999] w-full flex justify-center border-b border-b-foreground/10 h-[8vh] bg-background">
+          <div className="w-full flex justify-between z-50 items-center p-3 px-5 text-sm">
             <div className="flex mr-6 md:mr-0 gap-5 items-center justify-center ">
               <Image
                 src="/images/logo.svg"

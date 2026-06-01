@@ -126,6 +126,9 @@ type ProjectMetadata = {
   isNacelle?: boolean;
   poseAdresse?: string;
 
+  folderMonth?: FolderMonth | '';
+  folderNumber?: string;
+
   items?: Item[];
 };
 
@@ -145,6 +148,23 @@ function normalizeType(value: unknown) {
 const WHO_OPTIONS = ['Dumè', 'Manu', 'Matt'] as const;
 
 type WhoOption = (typeof WHO_OPTIONS)[number];
+
+const FOLDER_MONTHS = [
+  'Janvier',
+  'Février',
+  'Mars',
+  'Avril',
+  'Mai',
+  'Juin',
+  'Juillet',
+  'Août',
+  'Septembre',
+  'Octobre',
+  'Novembre',
+  'Décembre',
+] as const;
+
+type FolderMonth = (typeof FOLDER_MONTHS)[number];
 
 function normalizeComponents(raw: unknown): BundleComponent[] {
   try {
@@ -194,6 +214,8 @@ export default function ProjectContent() {
 
   const [title, setTitle] = useState('');
   const [note, setNote] = useState('');
+  const [folderMonth, setFolderMonth] = useState<FolderMonth | ''>('');
+  const [folderNumber, setFolderNumber] = useState('');
   const [limitDate, setLimitDate] = useState<Date | null>(new Date());
   const [isUrgent, setIsUrgent] = useState(false);
 
@@ -211,8 +233,6 @@ export default function ProjectContent() {
 
   const [previewPDF, setPreviewPDF] = useState(false);
 
-  
-
   const plastifProducts = useMemo(() => {
     return products.filter((product) =>
       normalizeText(product.title).includes('plastif'),
@@ -226,32 +246,34 @@ export default function ProjectContent() {
     poseDate: poseDate?.toISOString(),
     isNacelle,
     poseAdresse,
+    folderMonth,
+    folderNumber,
     items,
   };
-async function handleWhoChange(value: WhoOption) {
-  if (!project.id) return;
+  async function handleWhoChange(value: WhoOption) {
+    if (!project.id) return;
 
-  const now = new Date().toISOString();
-  const currentWhen = (project as any).when;
+    const now = new Date().toISOString();
+    const currentWhen = (project as any).when;
 
-  const payload = {
-    Who: value,
-    when: currentWhen || now,
-    updateWhen: now,
-  };
+    const payload = {
+      Who: value,
+      when: currentWhen || now,
+      updateWhen: now,
+    };
 
-  setProject((prev) => ({
-    ...prev,
-    ...payload,
-  }));
+    setProject((prev) => ({
+      ...prev,
+      ...payload,
+    }));
 
-  try {
-    await updateProject(project.id, payload as any);
-    toast.success('Responsable mis à jour');
-  } catch {
-    toast.error('Erreur pendant la mise à jour du responsable');
+    try {
+      await updateProject(project.id, payload as any);
+      toast.success('Responsable mis à jour');
+    } catch {
+      toast.error('Erreur pendant la mise à jour du responsable');
+    }
   }
-}
   useEffect(() => {
     async function fetchData() {
       if (!id) return;
@@ -266,6 +288,8 @@ async function handleWhoChange(value: WhoOption) {
 
       setTitle(projectData.title ?? '');
       setNote(projectData.note ?? '');
+      setFolderMonth((metadata.folderMonth as FolderMonth) ?? '');
+      setFolderNumber(metadata.folderNumber ?? '');
       setIsUrgent(projectData.isUrgent ?? false);
       setLimitDate(
         projectData.limitDate ? new Date(projectData.limitDate) : new Date(),
@@ -822,23 +846,23 @@ async function handleWhoChange(value: WhoOption) {
             ))}
           </SelectContent>
         </Select>
-{/* Graphistes  */}
+        {/* Graphistes  */}
         <Select
-  value={(project as any).Who || ''}
-  onValueChange={(value) => handleWhoChange(value as WhoOption)}
->
-  <SelectTrigger className="w-auto min-w-32 px-2">
-    <SelectValue placeholder="Qui ?" />
-  </SelectTrigger>
+          value={(project as any).Who || ''}
+          onValueChange={(value) => handleWhoChange(value as WhoOption)}
+        >
+          <SelectTrigger className="w-auto min-w-32 px-2">
+            <SelectValue placeholder="Qui ?" />
+          </SelectTrigger>
 
-  <SelectContent side="bottom" align="start" position="popper">
-    {WHO_OPTIONS.map((name) => (
-      <SelectItem key={name} value={name}>
-        {name}
-      </SelectItem>
-    ))}
-  </SelectContent>
-</Select>
+          <SelectContent side="bottom" align="start" position="popper">
+            {WHO_OPTIONS.map((name) => (
+              <SelectItem key={name} value={name}>
+                {name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
         <div className="flex gap-3">
           <Button type="button" onClick={() => setPreviewPDF(true)}>
@@ -889,6 +913,49 @@ async function handleWhoChange(value: WhoOption) {
               autoComplete="off"
             />
           </Field>
+
+          <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-4 mb-6">
+            <Field>
+              <FieldLabel>Mois dossier PROD</FieldLabel>
+
+              <Select
+                value={folderMonth}
+                onValueChange={(value) => setFolderMonth(value as FolderMonth)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choisir un mois" />
+                </SelectTrigger>
+
+                <SelectContent>
+                  {FOLDER_MONTHS.map((month) => (
+                    <SelectItem key={month} value={month}>
+                      {month}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+
+            <Field>
+              <FieldLabel>Numéro dossier PROD</FieldLabel>
+
+              <Input
+                value={folderNumber}
+                onChange={(e) => setFolderNumber(e.target.value)}
+                placeholder="53"
+                autoComplete="off"
+              />
+            </Field>
+          </div>
+
+          {folderMonth && folderNumber && (
+            <div className="mb-6 text-sm text-muted-foreground">
+              Dossier PROD :{' '}
+              <span className="font-medium text-foreground">
+                {folderMonth}-{folderNumber}
+              </span>
+            </div>
+          )}
 
           <div className="flex justify-between items-center gap-8 mb-6">
             <Field>
