@@ -10,6 +10,7 @@ import { CartItemRow } from './CartItemRow';
 import { useCart } from '@/hooks/useCart';
 import { Trash } from 'lucide-react';
 import { validateCart } from '@/lib/data/commandes';
+import { toast } from 'sonner';
 
 export default function CartPopover() {
   const items = useCart((state) => state.items);
@@ -73,8 +74,18 @@ export default function CartPopover() {
                 <Button
                   className="mt-2"
                   onClick={async () => {
-                    await validateCart(items);
-                    clearCart();
+                    try {
+                      await validateCart(items);
+                      clearCart();
+                      toast.success('Commande créée');
+                    } catch (error) {
+                      console.error(error);
+                      toast.error(
+                        error instanceof Error
+                          ? error.message
+                          : 'Erreur pendant la création de la commande',
+                      );
+                    }
                   }}
                 >
                   Créer la commande

@@ -77,61 +77,83 @@ export async function getCommande(id: number) {
 export async function validateCart(items: CartItem[]) {
   const supabase = await createClient();
 
-  console.log('ITEMS:', items);
+  if (!items.length) {
+    throw new Error('Le panier est vide');
+  }
+
+  const invalidItems = items.filter((item) => !item.supplier_id);
+
+  if (invalidItems.length > 0) {
+    console.error('Produits sans supplier_id:', invalidItems);
+    throw new Error('Certains produits n’ont pas de fournisseur');
+  }
 
   const grouped = items.reduce(
     (acc, item) => {
-      console.log('ITEM supplier:', item.supplier_id);
+      const supplierId = Number(item.supplier_id);
 
-      if (!acc[item.supplier_id]) {
-        acc[item.supplier_id] = [];
+      if (!Number.isFinite(supplierId)) {
+        throw new Error(`supplier_id invalide pour ${item.product_name}`);
       }
-      acc[item.supplier_id].push(item);
+
+      if (!acc[supplierId]) {
+        acc[supplierId] = [];
+      }
+
+      acc[supplierId].push(item);
       return acc;
     },
     {} as Record<number, CartItem[]>,
   );
 
-  console.log('GROUPED:', grouped);
-
   for (const supplierIdStr in grouped) {
     const supplierId = Number(supplierIdStr);
     const supplierItems = grouped[supplierId];
 
-    // 🔍 commande active
-    const { data: existing } = await supabase
+    const { data: existing, error: existingError } = await supabase
       .from('Commandes')
       .select('*')
       .eq('supplierId', supplierId)
       .eq('status', 'active')
       .maybeSingle();
 
+    if (existingError) {
+      console.error('Erreur recherche commande active:', existingError);
+      throw new Error(existingError.message);
+    }
+
     let commandeId = existing?.id;
 
-    // ➕ création si besoin
     if (!commandeId) {
       const { data: newCommande, error } = await supabase
         .from('Commandes')
         .insert({
-          supplierId: supplierId,
+          supplierId,
           status: 'active',
         })
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erreur création commande:', error);
+        throw new Error(error.message);
+      }
 
       commandeId = newCommande.id;
     }
 
-    // 🔁 gestion items (merge)
     for (const item of supplierItems) {
-      const { data: existingItem } = await supabase
+      const { data: existingItem, error: existingItemError } = await supabase
         .from('Commande_items')
         .select('*')
         .eq('commandeId', commandeId)
         .eq('productId', item.product_id)
         .maybeSingle();
+
+      if (existingItemError) {
+        console.error('Erreur recherche item commande:', existingItemError);
+        throw new Error(existingItemError.message);
+      }
 
       if (existingItem) {
         const { error } = await supabase
@@ -141,17 +163,23 @@ export async function validateCart(items: CartItem[]) {
           })
           .eq('id', existingItem.id);
 
-        if (error) throw error;
+        if (error) {
+          console.error('Erreur update item:', error);
+          throw new Error(error.message);
+        }
       } else {
         const { error } = await supabase.from('Commande_items').insert({
-          commandeId: commandeId,
+          commandeId,
           productId: item.product_id,
           productName: item.product_name,
           quantity: item.quantity,
-          productRef: item.product_ref, // ✅ ICI
+          productRef: item.product_ref,
         });
 
-        if (error) throw error;
+        if (error) {
+          console.error('Erreur insert item:', error);
+          throw new Error(error.message);
+        }
       }
     }
   }

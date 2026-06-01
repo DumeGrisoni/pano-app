@@ -38,20 +38,22 @@ export const columns: ColumnDef<
 
       return (
         <div className="flex justify-center">
-          <Button
-            onClick={() => {
-              addItem({
-                product_id: Number(product.id),
-                product_name: product.title || '',
-                supplier_id: Number(product.supplier), // ⚠️ IMPORTANT
-                supplier_name: product.supplierName || '',
-                quantity: 1,
-                product_ref: product.ref || '',
-              });
-            }}
-          >
-            Ajouter
-          </Button>
+          {product.type !== 'bundle' && (
+            <Button
+              onClick={() => {
+                addItem({
+                  product_id: Number(product.id),
+                  product_name: product.title || '',
+                  supplier_id: Number(product.supplier), // ⚠️ IMPORTANT
+                  supplier_name: product.supplierName || '',
+                  quantity: 1,
+                  product_ref: product.ref || '',
+                });
+              }}
+            >
+              Ajouter
+            </Button>
+          )}
         </div>
       );
     },
