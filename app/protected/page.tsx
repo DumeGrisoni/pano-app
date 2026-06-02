@@ -54,12 +54,13 @@ const DASHBOARD_ORDER: DashboardItem[] = [
   { type: 'status', key: 'DONE' },
 ];
 
-function sortProjectsByTitle(projects: Project[]) {
+function sortProjectsByLimitDate(projects: Project[]) {
   return [...projects].sort((a, b) => {
-    const titleA = String(a.title ?? '').toLowerCase();
-    const titleB = String(b.title ?? '').toLowerCase();
+    if (!a.limitDate && !b.limitDate) return 0;
+    if (!a.limitDate) return 1;
+    if (!b.limitDate) return -1;
 
-    return titleA.localeCompare(titleB, 'fr');
+    return new Date(a.limitDate).getTime() - new Date(b.limitDate).getTime();
   });
 }
 
@@ -206,7 +207,7 @@ export default function Home() {
   const projectsByGraphist = React.useMemo(() => {
     return GRAPHISTS.reduce(
       (acc, graphist) => {
-        acc[graphist.name] = sortProjectsByTitle(
+        acc[graphist.name] = sortProjectsByLimitDate(
           activeProjects.filter(
             (project) =>
               project.status === 'IN_DESIGN' &&
@@ -239,7 +240,7 @@ export default function Home() {
     });
 
     Object.keys(grouped).forEach((status) => {
-      grouped[status as ProjectStatus] = sortProjectsByTitle(
+      grouped[status as ProjectStatus] = sortProjectsByLimitDate(
         grouped[status as ProjectStatus],
       );
     });
@@ -313,7 +314,9 @@ export default function Home() {
 
               <ProjectMiniTable
                 projects={statusProjects}
-                maxHeight="max-h-[360px]"
+                maxHeight={
+                  status === 'IN_PRODUCTION' ? 'max-h-[720px]' : 'max-h-[360px]'
+                }
                 showFolder={status === 'IN_PRODUCTION'}
               />
             </Card>
