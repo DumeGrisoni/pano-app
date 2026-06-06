@@ -19,6 +19,21 @@ function CheckLine({ label, checked }: { label: string; checked?: boolean }) {
   );
 }
 
+function getProjectNumberLabel(metadata: any) {
+  const month = metadata?.folderMonth;
+  const number = metadata?.folderNumber;
+
+  if (month && number) {
+    return `${month} - ${number}`;
+  }
+
+  if (number) {
+    return `${number}`;
+  }
+
+  return null;
+}
+
 function formatFinition(value?: string) {
   switch (value) {
     case 'brut':
@@ -92,16 +107,6 @@ function getItemOptions(item: any) {
   return options;
 }
 
-function chunkArray<T>(array: T[], size: number) {
-  const chunks: T[][] = [];
-
-  for (let i = 0; i < array.length; i += size) {
-    chunks.push(array.slice(i, i + size));
-  }
-
-  return chunks;
-}
-
 function ProjectHeader({
   client,
   project,
@@ -111,6 +116,7 @@ function ProjectHeader({
   project: Database['public']['Tables']['Projects']['Row'];
   metadata: any;
 }) {
+  const projectNumberLabel = getProjectNumberLabel(metadata);
   return (
     <>
       <CardHeader
@@ -141,6 +147,12 @@ function ProjectHeader({
                 {client.name} {client.surname}
               </span>
             </p>
+            {projectNumberLabel && (
+              <p className="text-sm flex justify-between w-full gap-4">
+                <span>PROD :</span>
+                <span>{projectNumberLabel}</span>
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col text-white gap-2 mt-2">

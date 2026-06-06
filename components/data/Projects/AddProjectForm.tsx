@@ -10,11 +10,12 @@ import * as z from 'zod';
 import DatePicker, { registerLocale } from 'react-datepicker';
 import { fr } from 'date-fns/locale/fr';
 import { useRouter } from 'next/navigation';
-import { Trash } from 'lucide-react';
+import { Copy, Trash } from 'lucide-react';
 
 import { Database } from '@/database.types';
 import { createNewProject } from '@/lib/data/projects';
 import { getProducts } from '@/lib/data/products';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 import { SearchBar } from '@/components/SearchBar';
 import { Button } from '@/components/ui/button';
@@ -250,6 +251,18 @@ export function AddProjectForm({
 
   function updateItems(newItems: Item[]) {
     setItems(newItems);
+  }
+
+  function duplicateLastItem() {
+    if (items.length === 0) {
+      toast.error('Aucune ligne à dupliquer');
+      return;
+    }
+
+    const lastItem = items[items.length - 1];
+    const duplicatedItem: Item = JSON.parse(JSON.stringify(lastItem));
+
+    updateItems([...items, duplicatedItem]);
   }
 
   function getProductById(productId?: number) {
@@ -579,7 +592,7 @@ export function AddProjectForm({
 
       if (itemNeedsDimensions(item)) {
         if (item.pricing_type === 'm2' && (!item.width || !item.height)) {
-          toast.error(`Largeur et hauteur obligatoires pour ${name}`);
+          toast.error(`Longueur et hauteur obligatoires pour ${name}`);
           return false;
         }
 
@@ -593,7 +606,7 @@ export function AddProjectForm({
           (!item.width || !item.height || !item.depth)
         ) {
           toast.error(
-            `Largeur, hauteur et profondeur obligatoires pour ${name}`,
+            `Longueur, hauteur et profondeur obligatoires pour ${name}`,
           );
           return false;
         }
@@ -651,6 +664,22 @@ export function AddProjectForm({
     }
 
     return true;
+  }
+
+  function getProductsByTab(tab: 'bundle' | 'media' | 'support' | 'other') {
+    return products.filter((product) => {
+      const productType = normalizeType((product as any).type);
+
+      if (tab === 'bundle') return productType === 'bundle';
+      if (tab === 'media') return productType === 'media';
+      if (tab === 'support') return productType === 'support';
+
+      return (
+        productType === 'other' ||
+        productType === 'autre' ||
+        productType === 'goodie'
+      );
+    });
   }
 
   async function onSubmit(data: z.output<typeof formSchema>) {
@@ -799,8 +828,8 @@ export function AddProjectForm({
               <div className="grid grid-cols-[minmax(300px,1fr)_50px_120px_120px_100px_60px] gap-4 text-xs font-semibold text-muted-foreground items-center">
                 <div>Produit</div>
                 <div>Qté</div>
-                <div>Option 1 / Hauteur</div>
-                <div>Option 2 / Longueur</div>
+                <div>Longueur / Option 1</div>
+                <div>Hauteur / Option 2</div>
                 <div>Total</div>
                 <div></div>
               </div>
@@ -817,8 +846,6 @@ export function AddProjectForm({
                 const needsDiffusant = itemNeedsDiffusant(item);
                 const needsBacheFinishing = itemNeedsBacheFinishing(item);
                 const needsPlastif = itemNeedsPlastif(item);
-                const needsOtherOptions =
-                  !needsDimensions && !needsGoodieOptions;
 
                 return (
                   <div key={index} className="flex flex-col gap-6">
@@ -856,7 +883,7 @@ export function AddProjectForm({
                           <Input
                             className="w-full h-10 rounded-md border px-2"
                             type="number"
-                            placeholder="Largeur"
+                            placeholder="Longueur"
                             value={item.width}
                             onChange={(e) => {
                               const copy = [...items];
@@ -865,8 +892,8 @@ export function AddProjectForm({
                             }}
                           />
 
-                          <input
-                            className="w-full h-10 rounded-md border px-2 disabled:bg-slate-50"
+                          <Input
+                            className="w-full h-10 rounded-md border px-2"
                             type="number"
                             placeholder="Hauteur"
                             value={item.height}
@@ -1335,6 +1362,16 @@ export function AddProjectForm({
                   >
                     + Autre
                   </Button>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={duplicateLastItem}
+                    disabled={items.length === 0}
+                  >
+                    <Copy className="mr-2 h-4 w-4" />
+                    Dupliquer la dernière ligne
+                  </Button>
                 </div>
 
                 <div className="text-right font-semibold">
@@ -1441,156 +1478,211 @@ export function AddProjectForm({
       </CardFooter>
 
       {openModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center w-full z-50">
-          <Card className="w-[90%] md:w-[40%] max-h-[70vh] flex flex-col">
-            <CardHeader>
+        <div className="fixed inset-0 z-50 flex w-full items-center justify-center overflow-hidden bg-black/50">
+          <Card className="w-[95%] md:w-[60%] h-[70vh] overflow-hidden flex flex-col">
+            <CardHeader className="shrink-0">
               <CardTitle>Choisir un produit</CardTitle>
               <CardDescription>
                 Rechercher et sélectionner un produit
               </CardDescription>
             </CardHeader>
 
-            <CardContent className="overflow-auto">
-              <SearchBar
-                data={products}
-                fields={['title', 'ref', 'supplierName']}
-              >
-                {(filtered) => (
-                  <div className="flex flex-col gap-2 mt-2">
-                    <div className="grid grid-cols-2 text-xs font-semibold text-muted-foreground px-2">
-                      <div>Produit</div>
-                      <div className="text-right">Prix</div>
-                    </div>
+            <CardContent className="flex-1 min-h-0 overflow-hidden">
+              <Tabs defaultValue="bundle" className="flex h-full flex-col">
+                <TabsList className="shrink-0 grid w-full grid-cols-4">
+                  <TabsTrigger value="bundle">Produits transformés</TabsTrigger>
+                  <TabsTrigger value="media">Adhésifs seuls</TabsTrigger>
+                  <TabsTrigger value="support">Support</TabsTrigger>
+                  <TabsTrigger value="other">Autres</TabsTrigger>
+                </TabsList>
 
-                    {filtered.map((product) => {
-                      const productType = normalizeType((product as any).type);
-                      const productComponents = normalizeComponents(
-                        (product as any).components,
-                      );
-
-                      const productHasSupport = productHasType(
-                        product,
-                        'support',
-                      );
-                      const productHasMedia = productHasType(product, 'media');
-                      const productHasGoodie = productHasType(
-                        product,
-                        'goodie',
-                      );
-
-                      const needsDimensions =
-                        productType === 'bundle' &&
-                        productHasGoodie &&
-                        !productHasSupport
-                          ? false
-                          : productHasSupport ||
-                            productHasMedia ||
-                            product.pricing_type === 'm2' ||
-                            product.pricing_type === 'ml' ||
-                            product.pricing_type === 'm3';
-                      const needsBache = productNeedsBacheFinishing(product);
-                      const needsPlastif = productNeedsPlastif(product);
-                      const needsDiffusant =
-                        productType === 'bundle' && productHasSupport;
-
-                      return (
-                        <div
-                          key={product.id}
-                          className="grid grid-cols-2 min-h-16 items-center border p-2 rounded cursor-pointer hover:bg-muted"
-                          onClick={() => {
-                            if (selectedIndex === null) return;
-
-                            const copy = [...items];
-
-                            copy[selectedIndex] = {
-                              ...copy[selectedIndex],
-
-                              productId: product.id,
-                              productName: product.title as string,
-
-                              productType,
-                              type: productType,
-
-                              components: productComponents,
-
-                              isCustom: false,
-                              customName: '',
-                              customPrice: 0,
-
-                              unitPrice: Number(product.price),
-
-                              pricing_type:
-                                ((product as any)
-                                  .pricing_type as PricingType) ?? 'unit',
-
-                              unit_multiplier:
-                                ((product as any).unit_multiplier as number) ??
-                                1,
-
-                              width: 0,
-                              height: 0,
-                              length: 0,
-                              depth: 0,
-
-                              option1:
-                                !needsDimensions && !productHasGoodie
-                                  ? ''
-                                  : undefined,
-                              option2:
-                                !needsDimensions && !productHasGoodie
-                                  ? ''
-                                  : undefined,
-
-                              diffusant: needsDiffusant ? null : undefined,
-
-                              plastifEnabled: needsPlastif ? false : undefined,
-                              plastifProductId: undefined,
-                              plastifProductName: undefined,
-
-                              goodieOptions: productHasGoodie
-                                ? {
-                                    option1: '',
-                                    option2: '',
-                                    placement:
-                                      productType === 'bundle' ? '' : undefined,
-                                  }
-                                : undefined,
-
-                              bacheOptions: needsBache
-                                ? {
-                                    finition: undefined,
-                                  }
-                                : undefined,
-                            };
-
-                            updateItems(copy);
-                            setOpenModal(false);
-                          }}
-                        >
-                          <div>
-                            <div className="font-medium">{product.title}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {productType}
-                              {productHasSupport ? ' • support' : ''}
-                              {productHasMedia ? ' • media' : ''}
-                              {productHasGoodie ? ' • goodie' : ''}
-                              {needsBache ? ' • finition' : ''}
-                              {needsPlastif ? ' • plastif' : ''}
+                {[
+                  {
+                    value: 'bundle',
+                    products: getProductsByTab('bundle'),
+                  },
+                  {
+                    value: 'media',
+                    products: getProductsByTab('media'),
+                  },
+                  {
+                    value: 'support',
+                    products: getProductsByTab('support'),
+                  },
+                  {
+                    value: 'other',
+                    products: getProductsByTab('other'),
+                  },
+                ].map((tab) => (
+                  <TabsContent
+                    key={tab.value}
+                    value={tab.value}
+                    className="flex-1 min-h-0 overflow-hidden"
+                  >
+                    <SearchBar
+                      data={tab.products}
+                      fields={['title', 'ref', 'supplierName']}
+                    >
+                      {(filtered) => (
+                        <div className="flex h-full min-h-0 flex-col">
+                          <div className="shrink-0 bg-background pb-2">
+                            <div className="grid grid-cols-2 text-xs font-semibold text-muted-foreground px-2 mt-2">
+                              <div>Produit</div>
+                              <div className="text-right">Prix</div>
                             </div>
                           </div>
 
-                          <div className="text-sm font-semibold text-right">
-                            {product.price} €
+                          <div className="max-h-[calc(70vh-260px)] overflow-y-auto overscroll-contain pr-1">
+                            <div className="flex flex-col gap-2">
+                              {filtered.length === 0 && (
+                                <div className="text-sm text-muted-foreground text-center border rounded-md p-4">
+                                  Aucun produit trouvé
+                                </div>
+                              )}
+
+                              {filtered.map((product) => {
+                                const productType = normalizeType(
+                                  (product as any).type,
+                                );
+
+                                const productComponents = normalizeComponents(
+                                  (product as any).components,
+                                );
+
+                                const productHasSupport = productHasType(
+                                  product,
+                                  'support',
+                                );
+                                const productHasMedia = productHasType(
+                                  product,
+                                  'media',
+                                );
+                                const productHasGoodie = productHasType(
+                                  product,
+                                  'goodie',
+                                );
+
+                                const needsDimensions =
+                                  productType === 'bundle' &&
+                                  productHasGoodie &&
+                                  !productHasSupport
+                                    ? false
+                                    : productHasSupport ||
+                                      productHasMedia ||
+                                      product.pricing_type === 'm2' ||
+                                      product.pricing_type === 'ml' ||
+                                      product.pricing_type === 'm3';
+
+                                const needsBache =
+                                  productNeedsBacheFinishing(product);
+                                const needsPlastif =
+                                  productNeedsPlastif(product);
+
+                                const needsDiffusant =
+                                  productType === 'bundle' && productHasSupport;
+
+                                return (
+                                  <div
+                                    key={product.id}
+                                    className="grid grid-cols-2 min-h-16 items-center border p-2 rounded cursor-pointer hover:bg-muted"
+                                    onClick={() => {
+                                      if (selectedIndex === null) return;
+
+                                      const copy = [...items];
+
+                                      copy[selectedIndex] = {
+                                        ...copy[selectedIndex],
+
+                                        productId: product.id,
+                                        productName: product.title as string,
+
+                                        productType,
+                                        type: productType,
+
+                                        components: productComponents,
+
+                                        isCustom: false,
+                                        customName: '',
+                                        customPrice: 0,
+
+                                        unitPrice: Number(product.price),
+
+                                        pricing_type:
+                                          ((product as any)
+                                            .pricing_type as PricingType) ??
+                                          'unit',
+
+                                        unit_multiplier:
+                                          ((product as any)
+                                            .unit_multiplier as number) ?? 1,
+
+                                        width: 0,
+                                        height: 0,
+                                        length: 0,
+                                        depth: 0,
+
+                                        option1:
+                                          !needsDimensions && !productHasGoodie
+                                            ? ''
+                                            : undefined,
+                                        option2:
+                                          !needsDimensions && !productHasGoodie
+                                            ? ''
+                                            : undefined,
+
+                                        diffusant: needsDiffusant
+                                          ? null
+                                          : undefined,
+
+                                        plastifEnabled: needsPlastif
+                                          ? false
+                                          : undefined,
+                                        plastifProductId: undefined,
+                                        plastifProductName: undefined,
+
+                                        goodieOptions: productHasGoodie
+                                          ? {
+                                              option1: '',
+                                              option2: '',
+                                              placement:
+                                                productType === 'bundle'
+                                                  ? ''
+                                                  : undefined,
+                                            }
+                                          : undefined,
+
+                                        bacheOptions: needsBache
+                                          ? {
+                                              finition: undefined,
+                                            }
+                                          : undefined,
+                                      };
+
+                                      updateItems(copy);
+                                      setOpenModal(false);
+                                    }}
+                                  >
+                                    <div className="font-medium">
+                                      {product.title}
+                                    </div>
+
+                                    <div className="text-sm font-semibold text-right">
+                                      {product.price} €
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </SearchBar>
+                      )}
+                    </SearchBar>
+                  </TabsContent>
+                ))}
+              </Tabs>
             </CardContent>
 
-            <CardFooter>
+            <CardFooter className="shrink-0">
               <Button
                 className="w-full"
                 variant="outline"
