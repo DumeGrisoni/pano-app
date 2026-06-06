@@ -265,7 +265,15 @@ export function ProjectPDF({
               Description
             </h2>
             <div className="pdf-avoid-break border rounded-b-md p-4">
-              <p className="text-sm whitespace-pre-wrap">{project.note}</p>
+              <div className="text-sm leading-6">
+                {String(project.note ?? '')
+                  .split(/\r?\n/)
+                  .map((line, index) => (
+                    <p key={index} className="min-h-6">
+                      {line.trim() === '' ? '\u00A0' : line}
+                    </p>
+                  ))}
+              </div>
             </div>
           </div>
           <div className="flex flex-col ">
