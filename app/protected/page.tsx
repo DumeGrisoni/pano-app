@@ -104,6 +104,151 @@ function getProjectFolder(project: Project) {
   return `${metadata.folderMonth}-${metadata.folderNumber}`;
 }
 
+type MetadataItem = {
+  type?: string;
+  width?: number;
+  height?: number;
+  length?: number;
+  depth?: number;
+
+  option1?: string | number | null;
+  option2?: string | number | null;
+  option3?: string | number | null;
+  diffusant?: string | number | boolean | null;
+
+  isCustom?: boolean;
+  quantity?: number;
+  productId?: number;
+  unitPrice?: number;
+  components?: unknown[];
+
+  customName?: string;
+  customPrice?: number;
+  manualTotal?: number | null;
+
+  productName?: string;
+  productType?: string;
+  pricing_type?: string;
+  unit_multiplier?: number;
+
+  tintedFilmOptions?: {
+    ref?: string;
+    pose?: string;
+  };
+
+  cutOptions?: {
+    color?: string;
+  };
+
+  plastifEnabled?: boolean;
+  plastifProductId?: number;
+  plastifProductName?: string;
+};
+
+type ProjectMetadata = {
+  items?: MetadataItem[];
+};
+
+function getProjectMetadata(project: Project): ProjectMetadata {
+  if (!project.metadata) return {};
+
+  if (typeof project.metadata === 'string') {
+    try {
+      return JSON.parse(project.metadata) as ProjectMetadata;
+    } catch {
+      return {};
+    }
+  }
+
+  return project.metadata as unknown as ProjectMetadata;
+}
+
+function getProjectMetadataItems(project: Project): MetadataItem[] {
+  const metadata = getProjectMetadata(project);
+
+  return Array.isArray(metadata.items) ? metadata.items : [];
+}
+
+function getItemName(item: MetadataItem) {
+  if (item.isCustom && item.customName?.trim()) {
+    return item.customName.trim();
+  }
+
+  return item.productName || 'Produit sans nom';
+}
+
+function getItemQuantity(item: MetadataItem) {
+  return item.quantity && item.quantity > 0 ? item.quantity : 1;
+}
+
+function getItemOptions(item: MetadataItem) {
+  const options: string[] = [];
+
+  const hasWidthHeight = Boolean(item.width && item.height);
+
+  if (hasWidthHeight) {
+    options.push(`Taille: L ${item.width} × H ${item.height} mm`);
+  } else {
+    if (
+      item.option1 !== undefined &&
+      item.option1 !== null &&
+      String(item.option1).trim() !== ''
+    ) {
+      options.push(`Option 1/L: ${item.option1}`);
+    }
+
+    if (
+      item.option2 !== undefined &&
+      item.option2 !== null &&
+      String(item.option2).trim() !== ''
+    ) {
+      options.push(`Option 2/H: ${item.option2}`);
+    }
+
+    if (
+      item.option3 !== undefined &&
+      item.option3 !== null &&
+      String(item.option3).trim() !== ''
+    ) {
+      options.push(`Option 3: ${item.option3}`);
+    }
+  }
+
+  if (item.length) {
+    options.push(`Longueur: ${item.length} mm`);
+  }
+
+  if (item.depth) {
+    options.push(`Profondeur: ${item.depth} mm`);
+  }
+
+  if (
+    item.diffusant !== undefined &&
+    item.diffusant !== null &&
+    String(item.diffusant).trim() !== ''
+  ) {
+    options.push(`Diffusant: ${item.diffusant === false ? 'Non' : 'Oui'}`);
+  }
+
+  if (item.tintedFilmOptions?.ref) {
+    options.push(`Réf: ${item.tintedFilmOptions.ref}`);
+  }
+
+  if (item.tintedFilmOptions?.pose) {
+    options.push(`Pose: ${item.tintedFilmOptions.pose}`);
+  }
+
+  if (item.cutOptions?.color) {
+    options.push(`Couleur: ${item.cutOptions.color}`);
+  }
+
+  if (item.plastifEnabled && item.plastifProductName) {
+    options.push(`Plastif: ${item.plastifProductName}`);
+  }
+
+  return options;
+}
+
 function ProjectMiniTable({
   projects,
   maxHeight = 'max-h-[260px]',
@@ -111,6 +256,8 @@ function ProjectMiniTable({
   showFolder = false,
   headerColorClass = 'bg-background text-foreground',
   compactViewColumn = false,
+  openProjectId,
+  onToggleProjectPreview,
 }: {
   projects: Project[];
   maxHeight?: string;
@@ -118,6 +265,8 @@ function ProjectMiniTable({
   showFolder?: boolean;
   headerColorClass?: string;
   compactViewColumn?: boolean;
+  openProjectId: number | null;
+  onToggleProjectPreview: (projectId: number) => void;
 }) {
   const colSpan = showFolder ? 5 : 4;
   const dateOrStatusLabel = showStatus ? 'Statut' : 'Date limite';
@@ -134,6 +283,9 @@ function ProjectMiniTable({
 
   const viewWidth = compactViewColumn ? 'w-[32px]' : 'w-[8%]';
   const cellPadding = compactViewColumn ? 'px-1 py-2' : '';
+  const hasOpenPreview = projects.some(
+    (project) => project.id === openProjectId,
+  );
 
   return (
     <CardContent className="p-0">
@@ -179,74 +331,186 @@ function ProjectMiniTable({
         </Table>
       </Table>
 
-      <div className={`${maxHeight} overflow-y-auto`}>
+      <div
+        className={
+          hasOpenPreview ? 'overflow-visible' : `${maxHeight} overflow-y-auto`
+        }
+      >
         <Table className="table-fixed w-full">
           <TableBody>
             {projects.length > 0 ? (
               projects.map((project) => {
                 const statusConfig =
                   PROJECT_STATUS[project.status as ProjectStatus];
+                const isPreviewOpen = openProjectId === project.id;
+                const items = getProjectMetadataItems(project);
 
                 return (
-                  <TableRow key={project.id}>
-                    <TableCell
-                      className={`${projectWidth} font-medium whitespace-normal break-words`}
+                  <React.Fragment key={project.id}>
+                    <TableRow
+                      onClick={() => onToggleProjectPreview(project.id)}
+                      className={
+                        isPreviewOpen
+                          ? 'cursor-pointer select-none bg-primary/10 hover:bg-primary/10'
+                          : 'cursor-pointer select-none hover:bg-muted/50'
+                      }
                     >
-                      {project.title}
-                    </TableCell>
-
-                    <TableCell
-                      className={`${clientWidth} whitespace-normal break-words`}
-                    >
-                      {project.entreprise || project.clientFullName}
-                    </TableCell>
-
-                    {showStatus ? (
-                      <TableCell className="w-[24%] whitespace-normal break-words">
-                        {statusConfig?.label ?? project.status ?? '—'}
-                      </TableCell>
-                    ) : (
-                      <>
-                        <TableCell
-                          className={showFolder ? 'w-[18%]' : 'w-[28%]'}
-                        >
-                          {project.limitDate
-                            ? new Date(project.limitDate).toLocaleDateString(
-                                'fr-FR',
-                              )
-                            : '—'}
-                        </TableCell>
-
-                        {showFolder && (
-                          <TableCell className="w-[12%] font-medium">
-                            {getProjectFolder(project)}
-                          </TableCell>
-                        )}
-                      </>
-                    )}
-
-                    <TableCell className={`${viewWidth} text-center px-0`}>
-                      <Link
-                        href={`/protected/projects/${project.id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <TableCell
+                        className={`${projectWidth} font-medium whitespace-normal break-words`}
                       >
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className={
-                            compactViewColumn ? 'h-7 w-7 p-0' : undefined
-                          }
+                        {project.title}
+                      </TableCell>
+
+                      <TableCell
+                        className={`${clientWidth} whitespace-normal break-words`}
+                      >
+                        {project.entreprise || project.clientFullName}
+                      </TableCell>
+
+                      {showStatus ? (
+                        <TableCell className="w-[24%] whitespace-normal break-words">
+                          {statusConfig?.label ?? project.status ?? '—'}
+                        </TableCell>
+                      ) : (
+                        <>
+                          <TableCell
+                            className={showFolder ? 'w-[18%]' : 'w-[28%]'}
+                          >
+                            {project.limitDate
+                              ? new Date(project.limitDate).toLocaleDateString(
+                                  'fr-FR',
+                                )
+                              : '—'}
+                          </TableCell>
+
+                          {showFolder && (
+                            <TableCell className="w-[12%] font-medium">
+                              {getProjectFolder(project)}
+                            </TableCell>
+                          )}
+                        </>
+                      )}
+
+                      <TableCell
+                        className={`${viewWidth} text-center px-0`}
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <Link
+                          href={`/protected/projects/${project.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
                         >
-                          <Eye
+                          <Button
+                            size="icon"
+                            variant="ghost"
                             className={
-                              compactViewColumn ? 'h-3.5 w-3.5' : 'w-4 h-4'
+                              compactViewColumn ? 'h-7 w-7 p-0' : undefined
                             }
-                          />
-                        </Button>
-                      </Link>
-                    </TableCell>
-                  </TableRow>
+                          >
+                            <Eye
+                              className={
+                                compactViewColumn ? 'h-3.5 w-3.5' : 'w-4 h-4'
+                              }
+                            />
+                          </Button>
+                        </Link>
+                      </TableCell>
+                    </TableRow>
+
+                    {isPreviewOpen && (
+                      <TableRow className="hover:bg-transparent">
+                        <TableCell
+                          colSpan={colSpan}
+                          className="bg-muted/30 p-0"
+                        >
+                          <div className="border-t px-4 py-4">
+                            <div className="rounded-lg border bg-background p-4 shadow-sm">
+                              <div className="mb-4 flex items-center justify-between gap-3">
+                                <div>
+                                  <p className="text-sm font-semibold">
+                                    Produits du projet
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {project.title}
+                                  </p>
+                                </div>
+
+                                <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
+                                  {items.length} produit
+                                  {items.length > 1 ? 's' : ''}
+                                </span>
+                              </div>
+
+                              {items.length > 0 ? (
+                                <div className="overflow-hidden rounded-md border">
+                                  <Table>
+                                    <TableHeader>
+                                      <TableRow>
+                                        <TableHead>Produit</TableHead>
+
+                                        <TableHead className="w-[90px] text-center">
+                                          Quantité
+                                        </TableHead>
+
+                                        <TableHead>Options</TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+
+                                    <TableBody>
+                                      {items.map((item, index) => (
+                                        <TableRow
+                                          key={`${item.productId ?? 'custom'}-${index}`}
+                                        >
+                                          <TableCell className="font-medium whitespace-normal break-words">
+                                            {getItemName(item)}
+                                          </TableCell>
+
+                                          <TableCell className="text-center font-semibold">
+                                            x{getItemQuantity(item)}
+                                          </TableCell>
+                                          <TableCell className="whitespace-normal break-words text-muted-foreground">
+                                            {getItemOptions(item).length > 0 ? (
+                                              <div className="flex flex-col gap-1">
+                                                {getItemOptions(item).map(
+                                                  (option, optionIndex) => (
+                                                    <span key={optionIndex}>
+                                                      {option}
+                                                    </span>
+                                                  ),
+                                                )}
+                                              </div>
+                                            ) : (
+                                              'Aucune option'
+                                            )}
+                                          </TableCell>
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
+                                </div>
+                              ) : (
+                                <div className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+                                  Aucun produit trouvé dans les metadata.
+                                </div>
+                              )}
+
+                              <div className="mt-4 flex justify-end">
+                                <Link
+                                  href={`/protected/projects/${project.id}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  <Button size="sm" variant="outline">
+                                    Voir le projet complet
+                                  </Button>
+                                </Link>
+                              </div>
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </React.Fragment>
                 );
               })
             ) : (
@@ -268,6 +532,13 @@ function ProjectMiniTable({
 
 export default function Home() {
   const [projects, setProjects] = React.useState<Project[]>([]);
+  const [openProjectId, setOpenProjectId] = React.useState<number | null>(null);
+
+  const toggleProjectPreview = React.useCallback((projectId: number) => {
+    setOpenProjectId((currentId) =>
+      currentId === projectId ? null : projectId,
+    );
+  }, []);
 
   React.useEffect(() => {
     async function fetchProjects() {
@@ -376,6 +647,8 @@ export default function Home() {
                               showStatus={false}
                               compactViewColumn
                               headerColorClass={graphist.colorClass}
+                              openProjectId={openProjectId}
+                              onToggleProjectPreview={toggleProjectPreview}
                             />
                           </Card>
                         );
@@ -414,6 +687,8 @@ export default function Home() {
                       }
                       showFolder={status === 'IN_PRODUCTION'}
                       headerColorClass={colorClass}
+                      openProjectId={openProjectId}
+                      onToggleProjectPreview={toggleProjectPreview}
                     />
                   </Card>
                 );

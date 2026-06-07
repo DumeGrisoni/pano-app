@@ -575,12 +575,7 @@ export function AddProjectForm({
         }
       }
 
-      if (
-        item.isCustom &&
-        (item.manualTotal === null ||
-          item.manualTotal === undefined ||
-          item.manualTotal <= 0)
-      ) {
+      if (item.isCustom && getItemTotal(item) <= 0) {
         toast.error(`Prix invalide pour ${name}`);
         return false;
       }
@@ -729,6 +724,20 @@ export function AddProjectForm({
     }
   }
 
+  function numberInputValue(value: number | null | undefined) {
+    return value === null || value === undefined || value === 0
+      ? ''
+      : String(value);
+  }
+
+  function parseNumberInput(value: string) {
+    return value === '' ? 0 : Number(value);
+  }
+
+  function parseNullableNumberInput(value: string) {
+    return value === '' ? null : Number(value);
+  }
+
   return (
     <Card className="w-full max-w-[80%] md:max-w-[99%] mx-auto">
       <CardHeader className="text-center flex flex-col gap-8">
@@ -866,14 +875,15 @@ export function AddProjectForm({
                             : item.productName || 'Choisir produit'}
                         </span>
                       </Button>
-
                       <input
                         className="w-12 h-10 text-center rounded-md border px-1"
                         type="number"
-                        value={item.quantity}
+                        value={numberInputValue(item.quantity)}
                         onChange={(e) => {
                           const copy = [...items];
-                          copy[index].quantity = Number(e.target.value);
+                          copy[index].quantity = parseNumberInput(
+                            e.target.value,
+                          );
                           updateItems(copy);
                         }}
                       />
@@ -884,10 +894,12 @@ export function AddProjectForm({
                             className="w-full h-10 rounded-md border px-2"
                             type="number"
                             placeholder="Longueur"
-                            value={item.width}
+                            value={numberInputValue(item.width)}
                             onChange={(e) => {
                               const copy = [...items];
-                              copy[index].width = Number(e.target.value);
+                              copy[index].width = parseNumberInput(
+                                e.target.value,
+                              );
                               updateItems(copy);
                             }}
                           />
@@ -896,10 +908,12 @@ export function AddProjectForm({
                             className="w-full h-10 rounded-md border px-2"
                             type="number"
                             placeholder="Hauteur"
-                            value={item.height}
+                            value={numberInputValue(item.height)}
                             onChange={(e) => {
                               const copy = [...items];
-                              copy[index].height = Number(e.target.value);
+                              copy[index].height = parseNumberInput(
+                                e.target.value,
+                              );
                               updateItems(copy);
                             }}
                           />

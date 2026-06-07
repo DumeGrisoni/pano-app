@@ -50,13 +50,13 @@ export default function ProtectedLayout({
           <p className="flex items-center justify-center gap-3">
             Réaliser par{' '}
           </p>
-          <Link
-            href="https://vista-studio.vercel.app/dev-web"
-            target="_blank"
-            className="font-bold hover:underline"
-            rel="noreferrer"
-          >
-            <div className="relative w-20 h-20">
+          <div className="relative w-20 h-20">
+            <Link
+              href="https://vista-studio.vercel.app/dev-web"
+              target="_blank"
+              className="font-bold hover:underline"
+              rel="noreferrer"
+            >
               <Image
                 src="/images/vistalogo.svg"
                 alt="Vista Studio"
@@ -64,8 +64,8 @@ export default function ProtectedLayout({
                 className="object-contain dark:invert hover:dark:invert-0 transition-all duration-200"
                 loading="eager"
               />
-            </div>
-          </Link>
+            </Link>
+          </div>
         </footer>
       </div>
     </main>
